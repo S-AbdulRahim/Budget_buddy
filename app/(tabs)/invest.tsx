@@ -132,69 +132,86 @@ export default function InvestScreen() {
           </View>
         </View>
         <Text style={styles.sipNote}>
-          Post-debt allocation • {data.investments.length} funds • Equal to EMI amount
+          {data.debtTotal > 0 
+            ? `Post-debt allocation • ${data.investments.length} funds • Equal to EMI amount`
+            : `Active allocation • ${data.investments.length} funds`
+          }
         </Text>
       </View>
 
-      {/* Fund Cards */}
-      <Text style={styles.sectionTitle}>Investment Funds</Text>
-      {data.investments.map((fund, index) => (
-        <View key={fund.id} style={[styles.fundCard, !debtCleared && styles.fundCardLocked]}>
-          <View style={styles.fundHeader}>
-            <View style={[styles.fundIconWrap, { backgroundColor: fund.color + '20' }]}>
-              <Ionicons
-                name={
-                  index === 0 ? 'shield-checkmark' :
-                  index === 1 ? 'analytics' :
-                  index === 2 ? 'leaf' :
-                  'airplane'
-                }
-                size={22}
-                color={fund.color}
-              />
-            </View>
-            <View style={styles.fundInfo}>
-              <Text style={styles.fundName}>{fund.name}</Text>
-              <Text style={styles.fundType}>{fund.type}</Text>
-            </View>
-            <View style={styles.fundAmountWrap}>
-              <Text style={[styles.fundAmount, { color: fund.color }]}>
-                {formatCurrencyFull(fund.monthlyAmount)}
-              </Text>
-              <Text style={styles.fundPer}>/month</Text>
-            </View>
-          </View>
-
-          {/* Allocation Bar */}
-          <View style={styles.fundAllocation}>
-            <View style={styles.fundAllocationHeader}>
-              <Text style={styles.fundAllocationLabel}>Allocation</Text>
-              <Text style={[styles.fundAllocationPercent, { color: fund.color }]}>
-                {fund.allocation}%
-              </Text>
-            </View>
-            <AllocationBar value={fund.allocation} maxValue={100} color={fund.color} />
-          </View>
-
-          {/* Status */}
-          <View style={styles.fundStatus}>
-            <View style={[
-              styles.statusDot,
-              { backgroundColor: debtCleared ? Colors.accentGreen : Colors.textMuted },
-            ]} />
-            <Text style={styles.statusText}>
-              {debtCleared ? 'Active — Auto-debit enabled' : 'Pending — Starts after debt clearance'}
-            </Text>
-          </View>
+      {totalSIP === 0 ? (
+        <View style={styles.emptyInvestCard}>
+          <Ionicons name="leaf-outline" size={64} color={Colors.textMuted} />
+          <Text style={styles.emptyInvestTitle}>No SIP Plan Configured</Text>
+          <Text style={styles.emptyInvestText}>
+            You have not configured any monthly investment allocations. You can customize your Shariah-compliant mutual fund allocations in Settings.
+          </Text>
         </View>
-      ))}
+      ) : (
+        <>
+          {/* Fund Cards */}
+          <Text style={styles.sectionTitle}>Investment Funds</Text>
+          {data.investments.filter(fund => fund.monthlyAmount > 0).map((fund, index) => (
+            <View key={fund.id} style={[styles.fundCard, !debtCleared && styles.fundCardLocked]}>
+              <View style={styles.fundHeader}>
+                <View style={[styles.fundIconWrap, { backgroundColor: fund.color + '20' }]}>
+                  <Ionicons
+                    name={
+                      index === 0 ? 'shield-checkmark' :
+                      index === 1 ? 'analytics' :
+                      index === 2 ? 'leaf' :
+                      'airplane'
+                    }
+                    size={22}
+                    color={fund.color}
+                  />
+                </View>
+                <View style={styles.fundInfo}>
+                  <Text style={styles.fundName}>{fund.name}</Text>
+                  <Text style={styles.fundType}>{fund.type}</Text>
+                </View>
+                <View style={styles.fundAmountWrap}>
+                  <Text style={[styles.fundAmount, { color: fund.color }]}>
+                    {formatCurrencyFull(fund.monthlyAmount)}
+                  </Text>
+                  <Text style={styles.fundPer}>/month</Text>
+                </View>
+              </View>
+
+              {/* Allocation Bar */}
+              <View style={styles.fundAllocation}>
+                <View style={styles.fundAllocationHeader}>
+                  <Text style={styles.fundAllocationLabel}>Allocation</Text>
+                  <Text style={[styles.fundAllocationPercent, { color: fund.color }]}>
+                    {fund.allocation}%
+                  </Text>
+                </View>
+                <AllocationBar value={fund.allocation} maxValue={100} color={fund.color} />
+              </View>
+
+              {/* Status */}
+              <View style={styles.fundStatus}>
+                <View style={[
+                  styles.statusDot,
+                  { backgroundColor: debtCleared ? Colors.accentGreen : Colors.textMuted },
+                ]} />
+                <Text style={styles.statusText}>
+                  {debtCleared ? 'Active — Auto-debit enabled' : 'Pending — Starts after debt clearance'}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </>
+      )}
 
       {/* Disclaimer */}
       <View style={styles.disclaimer}>
         <Ionicons name="information-circle" size={16} color={Colors.textMuted} />
         <Text style={styles.disclaimerText}>
-          All funds are Shariah-compliant. Investment amounts equal your current EMI (₹16,700/month) — 
-          redirected automatically after debt payoff.
+          All funds are Shariah-compliant. {data.debtTotal > 0 
+            ? `Investment amounts equal your current EMI (${formatCurrencyFull(data.debtEmi)}/month) — redirected automatically after debt payoff.`
+            : 'Your investments are active and debited monthly according to your configured allocations.'
+          }
         </Text>
       </View>
 
@@ -406,5 +423,27 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     flex: 1,
     lineHeight: 16,
+  },
+  emptyInvestCard: {
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xxl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginVertical: Spacing.xl,
+    ...Shadows.elevated,
+  },
+  emptyInvestTitle: {
+    ...Typography.title,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  emptyInvestText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

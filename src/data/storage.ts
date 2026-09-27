@@ -1,7 +1,7 @@
 // AsyncStorage wrapper for data persistence
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppData, Expense } from '../types';
-import { DEFAULT_DATA } from './budgetData';
+import { AppData, Expense, Category, Investment } from '../types';
+import { INITIAL_EMPTY_DATA, generateDebtSchedule, generateAnnualProjections } from './budgetData';
 
 const STORAGE_KEY = '@budget_buddy_data';
 
@@ -11,12 +11,12 @@ export async function loadData(): Promise<AppData> {
     if (json) {
       return JSON.parse(json) as AppData;
     }
-    // First launch — seed with default data
-    await saveData(DEFAULT_DATA);
-    return DEFAULT_DATA;
+    // First launch — seed with empty configured data
+    await saveData(INITIAL_EMPTY_DATA);
+    return INITIAL_EMPTY_DATA;
   } catch (error) {
     console.error('Error loading data:', error);
-    return DEFAULT_DATA;
+    return INITIAL_EMPTY_DATA;
   }
 }
 
@@ -63,7 +63,52 @@ export async function deleteExpense(expenseId: string): Promise<AppData> {
   return data;
 }
 
+export async function toggleDebtPayment(month: string): Promise<AppData> {
+  const data = await loadData();
+  data.debtPayments = data.debtPayments.map(p =>
+    p.month === month ? { ...p, isPaid: !p.isPaid } : p
+  );
+  await saveData(data);
+  return data;
+}
+
+export async function updateSettings(
+  salary: number,
+  categories: Category[],
+  debt: { total: number; emi: number; startMonth: string },
+  investments: Investment[]
+): Promise<AppData> {
+  const currentData = await loadData();
+  
+  const debtPayments = generateDebtSchedule(debt.total, debt.emi, debt.startMonth);
+  const annualProjections = generateAnnualProjections(categories);
+  
+  // Map out previous paid months if the debt configuration is similar, or just map them by index/month
+  const prevPaymentsMap = new Map(currentData.debtPayments.map(p => [p.month, p.isPaid]));
+  const updatedPayments = debtPayments.map(p => ({
+    ...p,
+    isPaid: prevPaymentsMap.get(p.month) || false,
+  }));
+
+  const updatedData: AppData = {
+    ...currentData,
+    salary,
+    categories,
+    debtTotal: debt.total,
+    debtEmi: debt.emi,
+    debtTenure: updatedPayments.length,
+    debtStartMonth: debt.startMonth,
+    debtPayments: updatedPayments,
+    investments,
+    annualProjections,
+    isSetupCompleted: true,
+  };
+  
+  await saveData(updatedData);
+  return updatedData;
+}
+
 export async function resetData(): Promise<AppData> {
-  await saveData(DEFAULT_DATA);
-  return DEFAULT_DATA;
+  await saveData(INITIAL_EMPTY_DATA);
+  return INITIAL_EMPTY_DATA;
 }

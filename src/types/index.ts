@@ -53,4 +53,6 @@ export interface AppData {
   debtTotal: number;
   debtEmi: number;
   debtTenure: number;
+  debtStartMonth?: string;
+  isSetupCompleted?: boolean;
 }

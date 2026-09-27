@@ -13,6 +13,7 @@ import { loadData } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import StatCard from '../../src/components/StatCard';
 import ProgressBar from '../../src/components/ProgressBar';
+import OnboardingWizard from '../../src/components/OnboardingWizard';
 
 export default function DashboardScreen() {
   const [data, setData] = useState<AppData | null>(null);
@@ -42,6 +43,10 @@ export default function DashboardScreen() {
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
+  }
+
+  if (!data.isSetupCompleted) {
+    return <OnboardingWizard onSuccess={fetchData} />;
   }
 
   const totalBudget = data.categories.reduce((sum, c) => sum + c.budget, 0);

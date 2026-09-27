@@ -1,85 +1,96 @@
 // Default budget data seeded from the user's Excel spreadsheet
-import { AppData } from '../types';
+import { AppData, Category, DebtPayment, MonthlyProjection } from '../types';
 
-export const DEFAULT_DATA: AppData = {
-  salary: 60000,
+export function generateDebtSchedule(total: number, emi: number, startMonthStr: string): DebtPayment[] {
+  if (total <= 0 || emi <= 0) return [];
+  const schedule: DebtPayment[] = [];
+  let remaining = total;
+  let principalPaid = 0;
+  
+  // Parse start month, e.g., "Jun '26" or "Jun 2026"
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  let cleanStart = startMonthStr.replace("'", "").trim();
+  let parts = cleanStart.split(/\s+/);
+  let mName = parts[0] || "Jun";
+  let yName = parts[1] || "26";
+  
+  let mIndex = months.findIndex(m => m.toLowerCase().startsWith(mName.toLowerCase()));
+  if (mIndex === -1) mIndex = 5; // Default June
+  
+  let year = parseInt(yName.length === 2 ? "20" + yName : yName);
+  if (isNaN(year)) year = 2026;
+  
+  while (remaining > 0) {
+    const currentMonthStr = `${months[mIndex]} '${year.toString().slice(-2)}`;
+    const currentEmi = Math.min(emi, remaining);
+    principalPaid += currentEmi;
+    remaining -= currentEmi;
+    
+    schedule.push({
+      month: currentMonthStr,
+      emi: currentEmi,
+      principalPaid: principalPaid,
+      remainingBalance: remaining,
+      isPaid: false,
+    });
+    
+    mIndex++;
+    if (mIndex >= 12) {
+      mIndex = 0;
+      year++;
+    }
+  }
+  
+  return schedule;
+}
+
+export function generateAnnualProjections(categories: Category[]): MonthlyProjection[] {
+  const months = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
+  
+  const categoryBudgets: { [key: string]: number } = {};
+  let total = 0;
+  categories.forEach(cat => {
+    categoryBudgets[cat.name] = cat.budget;
+    total += cat.budget;
+  });
+  
+  return months.map(month => ({
+    month,
+    categories: { ...categoryBudgets },
+    total,
+  }));
+}
+
+export const INITIAL_EMPTY_DATA: AppData = {
+  salary: 0,
   
   categories: [
-    { id: '1', name: 'Rent', icon: 'home', budget: 15000, spent: 15000, color: '#6C5CE7' },
-    { id: '2', name: 'Groceries', icon: 'cart', budget: 8000, spent: 5200, color: '#00E676' },
-    { id: '3', name: 'Transportation', icon: 'car', budget: 3000, spent: 1800, color: '#00D2FF' },
-    { id: '4', name: 'Utilities', icon: 'flash', budget: 3000, spent: 2500, color: '#FFB74D' },
-    { id: '5', name: 'Entertainment', icon: 'game-controller', budget: 2000, spent: 500, color: '#FF6B9D' },
-    { id: '6', name: 'Shopping', icon: 'bag-handle', budget: 3000, spent: 0, color: '#FF5252' },
-    { id: '7', name: 'Healthcare', icon: 'medkit', budget: 2000, spent: 0, color: '#26C6DA' },
-    { id: '8', name: 'Savings', icon: 'wallet', budget: 7300, spent: 0, color: '#7C4DFF' },
+    { id: '1', name: 'Rent', icon: 'home', budget: 0, spent: 0, color: '#6C5CE7' },
+    { id: '2', name: 'Groceries', icon: 'cart', budget: 0, spent: 0, color: '#00E676' },
+    { id: '3', name: 'Transportation', icon: 'car', budget: 0, spent: 0, color: '#00D2FF' },
+    { id: '4', name: 'Utilities', icon: 'flash', budget: 0, spent: 0, color: '#FFB74D' },
+    { id: '5', name: 'Entertainment', icon: 'game-controller', budget: 0, spent: 0, color: '#FF6B9D' },
+    { id: '6', name: 'Shopping', icon: 'bag-handle', budget: 0, spent: 0, color: '#FF5252' },
+    { id: '7', name: 'Healthcare', icon: 'medkit', budget: 0, spent: 0, color: '#26C6DA' },
+    { id: '8', name: 'Savings', icon: 'wallet', budget: 0, spent: 0, color: '#7C4DFF' },
   ],
   
-  expenses: [
-    {
-      id: '1',
-      date: '2026-06-01',
-      description: 'Monthly Rent',
-      category: 'Rent',
-      amount: 15000,
-      paymentMode: 'Bank Transfer',
-      type: 'Need',
-    },
-    {
-      id: '2',
-      date: '2026-06-03',
-      description: 'Weekly Vegetables & Fruits',
-      category: 'Groceries',
-      amount: 1200,
-      paymentMode: 'UPI',
-      type: 'Need',
-    },
-    {
-      id: '3',
-      date: '2026-06-05',
-      description: 'Metro Pass Recharge',
-      category: 'Transportation',
-      amount: 1800,
-      paymentMode: 'UPI',
-      type: 'Need',
-    },
-    {
-      id: '4',
-      date: '2026-06-07',
-      description: 'Electricity Bill',
-      category: 'Utilities',
-      amount: 2500,
-      paymentMode: 'Bank Transfer',
-      type: 'Need',
-    },
-  ],
+  expenses: [],
   
-  debtTotal: 200000,
-  debtEmi: 16700,
-  debtTenure: 12,
+  debtTotal: 0,
+  debtEmi: 0,
+  debtTenure: 0,
+  debtStartMonth: "Jun '26",
   
-  debtPayments: [
-    { month: "Jun '26", emi: 16700, principalPaid: 16700, remainingBalance: 183300, isPaid: false },
-    { month: "Jul '26", emi: 16700, principalPaid: 33400, remainingBalance: 166600, isPaid: false },
-    { month: "Aug '26", emi: 16700, principalPaid: 50100, remainingBalance: 149900, isPaid: false },
-    { month: "Sep '26", emi: 16700, principalPaid: 66800, remainingBalance: 133200, isPaid: false },
-    { month: "Oct '26", emi: 16700, principalPaid: 83500, remainingBalance: 116500, isPaid: false },
-    { month: "Nov '26", emi: 16700, principalPaid: 100200, remainingBalance: 99800, isPaid: false },
-    { month: "Dec '26", emi: 16700, principalPaid: 116900, remainingBalance: 83100, isPaid: false },
-    { month: "Jan '27", emi: 16700, principalPaid: 133600, remainingBalance: 66400, isPaid: false },
-    { month: "Feb '27", emi: 16700, principalPaid: 150300, remainingBalance: 49700, isPaid: false },
-    { month: "Mar '27", emi: 16700, principalPaid: 167000, remainingBalance: 33000, isPaid: false },
-    { month: "Apr '27", emi: 16700, principalPaid: 183700, remainingBalance: 16300, isPaid: false },
-    { month: "May '27", emi: 16300, principalPaid: 200000, remainingBalance: 0, isPaid: false },
-  ],
+  debtPayments: [],
   
   investments: [
     {
       id: '1',
       name: 'Tata Ethical ELSS Fund',
       type: 'ELSS (Tax Saving)',
-      monthlyAmount: 5000,
-      allocation: 30,
+      monthlyAmount: 0,
+      allocation: 0,
       color: '#6C5CE7',
       isActive: false,
     },
@@ -87,8 +98,8 @@ export const DEFAULT_DATA: AppData = {
       id: '2',
       name: 'Nippon India ETF Shariah BeES',
       type: 'ETF (Shariah)',
-      monthlyAmount: 5000,
-      allocation: 30,
+      monthlyAmount: 0,
+      allocation: 0,
       color: '#00D2FF',
       isActive: false,
     },
@@ -96,8 +107,8 @@ export const DEFAULT_DATA: AppData = {
       id: '3',
       name: 'Taurus Ethical Fund',
       type: 'Equity (Ethical)',
-      monthlyAmount: 3700,
-      allocation: 22,
+      monthlyAmount: 0,
+      allocation: 0,
       color: '#00E676',
       isActive: false,
     },
@@ -105,25 +116,16 @@ export const DEFAULT_DATA: AppData = {
       id: '4',
       name: 'Umrah Reserve Fund',
       type: 'Goal-based Saving',
-      monthlyAmount: 3000,
-      allocation: 18,
+      monthlyAmount: 0,
+      allocation: 0,
       color: '#FFB74D',
       isActive: false,
     },
   ],
   
-  annualProjections: [
-    { month: 'Jun', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Jul', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Aug', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Sep', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Oct', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Nov', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Dec', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Jan', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Feb', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Mar', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'Apr', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-    { month: 'May', categories: { Rent: 15000, Groceries: 8000, Transportation: 3000, Utilities: 3000, Entertainment: 2000, Shopping: 3000, Healthcare: 2000, Savings: 7300 }, total: 43300 },
-  ],
+  annualProjections: [],
+  isSetupCompleted: false,
 };
+
+// Kept for backward compatibility if any older layouts reference it
+export const DEFAULT_DATA = INITIAL_EMPTY_DATA;

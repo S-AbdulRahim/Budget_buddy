@@ -94,27 +94,55 @@ Ensure you have the following installed on your machine:
 
 ## 🏃 Run & Development Build Steps
 
-You can run the project locally on your physical device, web browser, or simulator.
+You can run the project locally on a physical device, web browser, or simulator.
 
-### Start the Development Server
+### Option A: Using Development Builds (Recommended)
+Since this project uses modern Expo SDK 56 modules, compile a custom developer binary to avoid version incompatibility errors with standard Expo Go:
 
-To start the Expo development server:
-```bash
-npm run start
-```
-*Or, alternatively:*
-```bash
-npx expo start
-```
+#### 1. Build the Custom Developer App Binary
+* **Build Locally (Requires Android Studio/Xcode):**
+  * **Android:** Run `npx expo run:android`
+  * **iOS:** Run `npx expo run:ios`
+* **Build via EAS Cloud (No Local Android Studio/Xcode Required):**
+  If you don't have local mobile developer environments installed, you can use Expo's Application Services (EAS) to compile the binary in the cloud:
+  1. Log in to your Expo account:
+     ```bash
+     npx eas-cli login
+     ```
+  2. Trigger the cloud build for your chosen platform:
+     * **Android:**
+       ```bash
+       npx eas-cli build --profile development --platform android
+       ```
+     * **iOS:**
+       ```bash
+       npx eas-cli build --profile development --platform ios
+       ```
+  3. Once the cloud compilation finishes, download and install the generated application package (`.apk` for Android, or the test link for iOS) directly onto your physical phone.
 
-Once the dev server starts, a QR code will be displayed in the terminal.
+#### 2. Start the Development Server
+Once the custom app binary is installed on your device or emulator:
+1. Run the local Metro server in dev-client mode:
+   ```bash
+   npx expo start --dev-client
+   ```
+2. Open the custom **Budget Buddy** developer app, and scan the terminal's QR code or select your local dev server from the launcher screen to run the app.
+
+---
+
+### Option B: Using Expo Go (Standard)
+*Note: This requires that the Expo Go app installed on your mobile phone has been updated to support Expo SDK 56.*
 
 #### 1. Running on a Physical Device (iOS/Android)
-1. Install the **Expo Go** app on your phone.
-2. Open the Expo Go app.
+1. Install/update the latest **Expo Go** app on your phone.
+2. Start the server:
+   ```bash
+   npx expo start
+   ```
+3. Open the Expo Go app:
    - **Android**: Scan the QR code displayed in your terminal using the app's scanner.
    - **iOS**: Scan the QR code using your system camera app and click the link to open in Expo Go.
-3. Ensure both your computer and your phone are connected to the **same Wi-Fi network**.
+4. Ensure both your computer and your phone are connected to the **same Wi-Fi network**.
 
 #### 2. Running on Emulators/Simulators
 - **Android Emulator**: Press `a` in the terminal after starting the dev server, or run:
@@ -126,7 +154,9 @@ Once the dev server starts, a QR code will be displayed in the terminal.
   npm run ios
   ```
 
-#### 3. Running on Web Browser
+---
+
+### Option C: Running on Web Browser
 - Press `w` in the terminal after starting the dev server, or run:
   ```bash
   npm run web

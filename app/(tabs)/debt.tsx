@@ -5,11 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull } from '../../src/theme';
-import { loadData } from '../../src/data/storage';
+import { loadData, toggleDebtPayment } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import ChartBar from '../../src/components/ChartBar';
 
@@ -34,12 +35,40 @@ export default function DebtScreen() {
     setRefreshing(false);
   };
 
+  const handleTogglePayment = async (month: string) => {
+    const updated = await toggleDebtPayment(month);
+    setData(updated);
+  };
+
   if (!data) {
     return (
       <View style={styles.loading}>
         <Ionicons name="trending-down" size={48} color={Colors.primary} />
         <Text style={styles.loadingText}>Loading debt tracker...</Text>
       </View>
+    );
+  }
+
+  if (data.debtTotal === 0) {
+    return (
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, styles.emptyContainer]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
+      >
+        <Text style={styles.title}>Debt Payoff</Text>
+        <Text style={styles.subtitle}>Track your journey to debt freedom</Text>
+        
+        <View style={styles.emptyDebtCard}>
+          <Ionicons name="gift-outline" size={64} color={Colors.accentGreen} />
+          <Text style={styles.emptyDebtTitle}>You are debt-free!</Text>
+          <Text style={styles.emptyDebtText}>
+            No active debt payoffs configured. You can log debt under the Settings screen if you want to track a payoff schedule.
+          </Text>
+        </View>
+      </ScrollView>
     );
   }
 
@@ -136,34 +165,56 @@ export default function DebtScreen() {
         {data.debtPayments.map((payment, index) => (
           <View key={index} style={styles.paymentRow}>
             <View style={styles.paymentLeft}>
-              <View style={[
-                styles.paymentDot,
-                {
-                  backgroundColor: payment.isPaid
-                    ? Colors.accentGreen
-                    : payment.remainingBalance === 0
+              <TouchableOpacity
+                style={[
+                  styles.paymentDot,
+                  {
+                    backgroundColor: payment.isPaid || payment.remainingBalance === 0
                       ? Colors.accentGreen
                       : Colors.surfaceHighlight,
-                },
-              ]}>
+                  },
+                ]}
+                onPress={() => handleTogglePayment(payment.month)}
+                disabled={payment.remainingBalance === 0}
+              >
                 {(payment.isPaid || payment.remainingBalance === 0) && (
                   <Ionicons name="checkmark" size={12} color="#fff" />
                 )}
-              </View>
+              </TouchableOpacity>
               {index < data.debtPayments.length - 1 && <View style={styles.paymentLine} />}
             </View>
 
             <View style={[
               styles.paymentCard,
-              payment.remainingBalance === 0 && styles.paymentCardCleared,
+              (payment.remainingBalance === 0 || payment.isPaid) && styles.paymentCardCleared,
             ]}>
               <View style={styles.paymentCardHeader}>
                 <Text style={styles.paymentMonth}>{payment.month}</Text>
-                {payment.remainingBalance === 0 && (
+                {payment.remainingBalance === 0 ? (
                   <View style={styles.clearedBadge}>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.accentGreen} />
                     <Text style={styles.clearedText}>Cleared</Text>
                   </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.paidBadge,
+                      payment.isPaid ? styles.paidBadgeActive : null
+                    ]}
+                    onPress={() => handleTogglePayment(payment.month)}
+                  >
+                    <Ionicons
+                      name={payment.isPaid ? "checkmark-circle" : "ellipse-outline"}
+                      size={16}
+                      color={payment.isPaid ? Colors.accentGreen : Colors.textSecondary}
+                    />
+                    <Text style={[
+                      styles.paidBadgeText,
+                      payment.isPaid ? { color: Colors.accentGreen } : null
+                    ]}>
+                      {payment.isPaid ? 'Paid' : 'Mark Paid'}
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
               <View style={styles.paymentDetails}>
@@ -177,7 +228,7 @@ export default function DebtScreen() {
                   <Text style={styles.paymentDetailLabel}>Remaining</Text>
                   <Text style={[
                     styles.paymentDetailValue,
-                    { color: payment.remainingBalance === 0 ? Colors.accentGreen : Colors.accentAmber },
+                    { color: payment.remainingBalance === 0 || payment.isPaid ? Colors.accentGreen : Colors.accentAmber },
                   ]}>
                     {formatCurrencyFull(payment.remainingBalance)}
                   </Text>
@@ -389,5 +440,53 @@ const styles = StyleSheet.create({
   paymentDetailValue: {
     ...Typography.bodyBold,
     color: Colors.textPrimary,
+  },
+  emptyContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexGrow: 1,
+  },
+  emptyDebtCard: {
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xxl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginTop: Spacing.xl,
+    width: '100%',
+    ...Shadows.elevated,
+  },
+  emptyDebtTitle: {
+    ...Typography.title,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  emptyDebtText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  paidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.surfaceHighlight,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  paidBadgeActive: {
+    backgroundColor: Colors.accentGreen + '15',
+    borderColor: Colors.accentGreen + '30',
+  },
+  paidBadgeText: {
+    ...Typography.small,
+    color: Colors.textSecondary,
+    fontWeight: '600',
   },
 });
