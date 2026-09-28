@@ -57,6 +57,21 @@ const barStyles = StyleSheet.create({
   },
 });
 
+function getGoalIcon(fund: { name: string; type?: string; icon?: string }): any {
+  if (fund.icon) return fund.icon;
+  const name = fund.name.toLowerCase();
+  const type = (fund.type || '').toLowerCase();
+  if (name.includes('emergency') || name.includes('safety') || name.includes('reserve')) return 'shield-checkmark';
+  if (name.includes('retire') || name.includes('wealth')) return 'trending-up';
+  if (name.includes('umrah') || name.includes('hajj') || name.includes('travel')) return 'airplane';
+  if (name.includes('education') || name.includes('child') || name.includes('school')) return 'school';
+  if (name.includes('home') || name.includes('house') || name.includes('property')) return 'home';
+  if (name.includes('gold') || name.includes('metal')) return 'trophy';
+  if (type.includes('etf') || type.includes('index') || type.includes('equity')) return 'analytics';
+  if (name.includes('ethical') || name.includes('shariah') || name.includes('halal')) return 'leaf';
+  return 'flag';
+}
+
 export default function InvestScreen() {
   const [data, setData] = useState<AppData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,8 +115,8 @@ export default function InvestScreen() {
       }
     >
       {/* Header */}
-      <Text style={styles.title}>Halal Invest</Text>
-      <Text style={styles.subtitle}>Shariah-compliant SIP plan</Text>
+      <Text style={styles.title}>Investments & Goals</Text>
+      <Text style={styles.subtitle}>Monthly SIPs and savings goals</Text>
 
       {/* Lock Banner */}
       {!debtCleared && (
@@ -123,45 +138,40 @@ export default function InvestScreen() {
       <View style={styles.sipCard}>
         <View style={styles.sipCardHeader}>
           <View>
-            <Text style={styles.sipLabel}>Total Monthly SIP</Text>
+            <Text style={styles.sipLabel}>Total Monthly Goals / SIP</Text>
             <Text style={styles.sipAmount}>{formatCurrencyFull(totalSIP)}</Text>
           </View>
           <View style={styles.sipBadge}>
-            <Ionicons name="leaf" size={14} color={Colors.accentGreen} />
-            <Text style={styles.sipBadgeText}>Halal</Text>
+            <Ionicons name="sparkles" size={14} color={Colors.primaryLight} />
+            <Text style={styles.sipBadgeText}>Active Goals</Text>
           </View>
         </View>
         <Text style={styles.sipNote}>
           {data.debtTotal > 0 
-            ? `Post-debt allocation • ${data.investments.length} funds • Equal to EMI amount`
-            : `Active allocation • ${data.investments.length} funds`
+            ? `Post-debt allocation • ${data.investments.length} goals • Equal to EMI amount`
+            : `Active allocation • ${data.investments.length} goals`
           }
         </Text>
       </View>
 
       {totalSIP === 0 ? (
         <View style={styles.emptyInvestCard}>
-          <Ionicons name="leaf-outline" size={64} color={Colors.textMuted} />
-          <Text style={styles.emptyInvestTitle}>No SIP Plan Configured</Text>
+          <Ionicons name="flag-outline" size={64} color={Colors.textMuted} />
+          <Text style={styles.emptyInvestTitle}>No Goals / SIPs Configured</Text>
           <Text style={styles.emptyInvestText}>
-            You have not configured any monthly investment allocations. You can customize your Shariah-compliant mutual fund allocations in Settings.
+            You have not configured any monthly investment or goal allocations. You can customize your savings and investment goals in Settings.
           </Text>
         </View>
       ) : (
         <>
           {/* Fund Cards */}
-          <Text style={styles.sectionTitle}>Investment Funds</Text>
-          {data.investments.filter(fund => fund.monthlyAmount > 0).map((fund, index) => (
+          <Text style={styles.sectionTitle}>Investment & Savings Goals</Text>
+          {data.investments.filter(fund => fund.monthlyAmount > 0).map(fund => (
             <View key={fund.id} style={[styles.fundCard, !debtCleared && styles.fundCardLocked]}>
               <View style={styles.fundHeader}>
                 <View style={[styles.fundIconWrap, { backgroundColor: fund.color + '20' }]}>
                   <Ionicons
-                    name={
-                      index === 0 ? 'shield-checkmark' :
-                      index === 1 ? 'analytics' :
-                      index === 2 ? 'leaf' :
-                      'airplane'
-                    }
+                    name={getGoalIcon(fund)}
                     size={22}
                     color={fund.color}
                   />
@@ -208,9 +218,9 @@ export default function InvestScreen() {
       <View style={styles.disclaimer}>
         <Ionicons name="information-circle" size={16} color={Colors.textMuted} />
         <Text style={styles.disclaimerText}>
-          All funds are Shariah-compliant. {data.debtTotal > 0 
+          Monthly goals and SIP investments are tracked and projected automatically. {data.debtTotal > 0 
             ? `Investment amounts equal your current EMI (${formatCurrencyFull(data.debtEmi)}/month) — redirected automatically after debt payoff.`
-            : 'Your investments are active and debited monthly according to your configured allocations.'
+            : 'Your investments and goals are active and planned monthly according to your configured allocations.'
           }
         </Text>
       </View>
@@ -227,7 +237,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.xl,
-    paddingTop: 60,
+    paddingTop: Spacing.huge + Spacing.md,
   },
   loading: {
     flex: 1,
@@ -247,7 +257,7 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.caption,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: Spacing.xs,
     marginBottom: Spacing.xxl,
   },
   lockBanner: {
@@ -274,7 +284,7 @@ const styles = StyleSheet.create({
   lockTitle: {
     ...Typography.bodyBold,
     color: Colors.accentAmber,
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   lockText: {
     ...Typography.caption,
@@ -305,12 +315,12 @@ const styles = StyleSheet.create({
   sipAmount: {
     ...Typography.number,
     color: Colors.textPrimary,
-    marginTop: 4,
+    marginTop: Spacing.xs,
   },
   sipBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.xs,
     backgroundColor: Colors.accentGreen + '15',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
@@ -384,6 +394,7 @@ const styles = StyleSheet.create({
   fundAllocationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   fundAllocationLabel: {
     ...Typography.small,

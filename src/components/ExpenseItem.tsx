@@ -48,13 +48,49 @@ export default function ExpenseItem({
       <View style={styles.right}>
         <Text style={styles.amount}>-₹{amount.toLocaleString('en-IN')}</Text>
         <View style={styles.badges}>
-          <View style={[styles.badge, { backgroundColor: paymentMode === 'UPI' ? '#6C5CE720' : '#00D2FF20' }]}>
-            <Text style={[styles.badgeText, { color: paymentMode === 'UPI' ? '#6C5CE7' : '#00D2FF' }]}>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor:
+                  paymentMode === 'UPI'
+                    ? Colors.primary + '20'
+                    : Colors.accent + '20',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                {
+                  color:
+                    paymentMode === 'UPI' ? Colors.primaryLight : Colors.accent,
+                },
+              ]}
+            >
               {paymentMode}
             </Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: type === 'Need' ? '#00E67620' : '#FF6B9D20' }]}>
-            <Text style={[styles.badgeText, { color: type === 'Need' ? '#00E676' : '#FF6B9D' }]}>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor:
+                  type === 'Need'
+                    ? Colors.accentGreen + '20'
+                    : Colors.accentPink + '20',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                {
+                  color:
+                    type === 'Need' ? Colors.accentGreen : Colors.accentPink,
+                },
+              ]}
+            >
               {type}
             </Text>
           </View>
@@ -94,7 +130,7 @@ const styles = StyleSheet.create({
   description: {
     ...Typography.bodyBold,
     color: Colors.textPrimary,
-    marginBottom: 2,
+    marginBottom: Spacing.xs,
   },
   meta: {
     flexDirection: 'row',
@@ -105,8 +141,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   dot: {
-    width: 3,
-    height: 3,
+    width: 4,
+    height: 4,
     borderRadius: 2,
     backgroundColor: Colors.textMuted,
     marginHorizontal: Spacing.sm,
@@ -122,19 +158,19 @@ const styles = StyleSheet.create({
   amount: {
     ...Typography.bodyBold,
     color: Colors.accentRed,
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   badges: {
     flexDirection: 'row',
-    gap: 4,
+    gap: Spacing.xs,
   },
   badge: {
-    paddingHorizontal: 6,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
   },
   badgeText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.3,
   },

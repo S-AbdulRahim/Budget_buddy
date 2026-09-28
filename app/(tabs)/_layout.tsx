@@ -79,8 +79,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     height: 65,
-    paddingBottom: 8,
-    paddingTop: 8,
+    paddingBottom: Spacing.sm,
+    paddingTop: Spacing.sm,
     ...Shadows.elevated,
   },
   tabLabel: {
@@ -89,6 +89,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   tabItem: {
-    gap: 2,
+    gap: Spacing.xs,
   },
 });

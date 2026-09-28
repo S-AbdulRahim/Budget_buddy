@@ -1,56 +1,64 @@
 // Theme / Design System for Budget Buddy
-// Dark mode with vibrant accent colors
+// Dark mode — refined teal + gold palette (was violet + neon cyan/green)
+//
+// Drop-in replacement for src/theme/index.ts. Only the Colors values changed;
+// Spacing, BorderRadius, Typography, Shadows and the helper functions below
+// are unchanged so nothing else in the app needs to be touched.
 
 export const Colors = {
-  // Base
+  // Base — unchanged, this layered dark-navy system was already solid
   background: '#0A0E1A',
   surface: '#131829',
   surfaceElevated: '#1A2035',
   surfaceHighlight: '#222842',
-  
-  // Text
+
+  // Text — unchanged
   textPrimary: '#F0F2F8',
   textSecondary: '#8B92A8',
   textMuted: '#5A6178',
-  
-  // Brand
-  primary: '#6C5CE7',
-  primaryLight: '#A29BFE',
-  primaryDark: '#4834D4',
-  
-  // Accent
-  accent: '#00D2FF',
-  accentGreen: '#00E676',
-  accentAmber: '#FFB74D',
-  accentRed: '#FF5252',
-  accentPink: '#FF6B9D',
-  
-  // Status
-  success: '#00E676',
-  warning: '#FFB74D',
-  danger: '#FF5252',
-  info: '#00D2FF',
-  
-  // Category Colors
-  categoryRent: '#6C5CE7',
-  categoryGroceries: '#00E676',
-  categoryTransport: '#00D2FF',
-  categoryUtilities: '#FFB74D',
-  categoryEntertainment: '#FF6B9D',
-  categoryShopping: '#FF5252',
+
+  // Brand — was violet (#6C5CE7), now a deep teal.
+  // Distinct from the red/amber/green status colors below, so it never
+  // gets mistaken for a warning or success state.
+  primary: '#0F9B8E',
+  primaryLight: '#4FD1C5',
+  primaryDark: '#0A6E64',
+
+  // Secondary accent — was neon cyan (#00D2FF), now a muted gold.
+  // Used for the Savings Rate stat, badges, and other non-status highlights.
+  accent: '#C9A24E',
+  accentGreen: '#3DBE7B',   // was #00E676 — same role (safe/cleared), less neon
+  accentAmber: '#F2A93B',   // was #FFB74D — same role (warning/EMI), slightly richer
+  accentRed: '#E5555C',     // was #FF5252 — same role (overspent/danger), less saturated
+  accentPink: '#D97757',    // was #FF6B9D — used for the "Want" toggle; warm terracotta instead of neon pink
+
+  // Status — mirrors the accent roles above
+  success: '#3DBE7B',
+  warning: '#F2A93B',
+  danger: '#E5555C',
+  info: '#4FD1C5',
+
+  // Category Colors — kept broadly distinguishable for the breakdown chart,
+  // nudged so none of them sits directly on top of the new accentGreen/primary teal
+  categoryRent: '#8B7FE8',
+  categoryGroceries: '#8BC34A',
+  categoryTransport: '#4FD1C5',
+  categoryUtilities: '#F2A93B',
+  categoryEntertainment: '#D97757',
+  categoryShopping: '#E5555C',
   categoryHealthcare: '#26C6DA',
-  categorySavings: '#7C4DFF',
+  categorySavings: '#C9A24E',
   categoryMiscellaneous: '#8B92A8',
-  
+
   // Cards
   cardGradientStart: '#1A2035',
   cardGradientEnd: '#131829',
-  
-  // Borders
+
+  // Borders — unchanged
   border: '#2A3050',
   borderLight: '#333A55',
-  
-  // Overlay
+
+  // Overlay — unchanged
   overlay: 'rgba(0, 0, 0, 0.6)',
 };
 

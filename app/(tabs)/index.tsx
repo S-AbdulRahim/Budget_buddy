@@ -115,7 +115,6 @@ export default function DashboardScreen() {
           value={formatCurrency(totalBudget)}
           color={Colors.primary}
         />
-        <View style={{ width: Spacing.md }} />
         <StatCard
           icon="arrow-down-circle"
           label="Total Spent"
@@ -131,7 +130,6 @@ export default function DashboardScreen() {
           color={Colors.accentGreen}
           subtitle="After EMI"
         />
-        <View style={{ width: Spacing.md }} />
         <StatCard
           icon="trending-up"
           label="Savings Rate"
@@ -168,7 +166,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.xl,
-    paddingTop: 60,
+    paddingTop: Spacing.huge + Spacing.md,
   },
   loading: {
     flex: 1,
@@ -194,7 +192,7 @@ const styles = StyleSheet.create({
   month: {
     ...Typography.caption,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: Spacing.xs,
   },
   salaryBadge: {
     flexDirection: 'row',
@@ -267,6 +265,7 @@ const styles = StyleSheet.create({
   },
   statRow: {
     flexDirection: 'row',
+    gap: Spacing.md,
     marginBottom: Spacing.md,
   },
   section: {
@@ -283,5 +282,6 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     borderWidth: 1,
     borderColor: Colors.border,
+    gap: Spacing.lg,
   },
 });

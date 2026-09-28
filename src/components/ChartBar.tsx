@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   value: {
     ...Typography.small,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   track: {
     width: 24,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   label: {
     ...Typography.small,
     color: Colors.textSecondary,
-    marginTop: 4,
-    fontSize: 9,
+    marginTop: Spacing.xs,
+    fontSize: 10,
   },
 });

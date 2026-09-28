@@ -87,6 +87,8 @@ export default function AddExpenseModal({ visible, onClose, onAdd, categories }:
               placeholderTextColor={Colors.textMuted}
               value={description}
               onChangeText={setDescription}
+              cursorColor={Colors.primaryLight}
+              selectionColor={Colors.primary}
             />
 
             {/* Amount */}
@@ -98,6 +100,8 @@ export default function AddExpenseModal({ visible, onClose, onAdd, categories }:
               value={amount}
               onChangeText={setAmount}
               keyboardType="numeric"
+              cursorColor={Colors.primaryLight}
+              selectionColor={Colors.primary}
             />
 
             {/* Category */}
@@ -219,6 +223,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BorderRadius.xxl,
     maxHeight: '90%',
     paddingBottom: Spacing.xxxl,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   header: {
     alignItems: 'center',
@@ -265,6 +272,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     borderWidth: 1,
     borderColor: Colors.border,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
   chipGroup: {
     flexDirection: 'row',

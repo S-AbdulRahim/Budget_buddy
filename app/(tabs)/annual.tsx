@@ -84,13 +84,14 @@ export default function AnnualScreen() {
       {/* Category Annual Totals */}
       <Text style={styles.sectionTitle}>Annual by Category</Text>
       <View style={styles.catTotalCard}>
-        {categoryNames.map(cat => {
+        {categoryNames.map((cat, index) => {
           const catTotal = annualByCat[cat];
           const catColor = getCategoryColor(cat);
           const percentage = annualTotal > 0 ? (catTotal / annualTotal) * 100 : 0;
+          const isLast = index === categoryNames.length - 1;
 
           return (
-            <View key={cat} style={styles.catRow}>
+            <View key={cat} style={[styles.catRow, isLast && styles.catRowLast]}>
               <View style={styles.catLeft}>
                 <View style={[styles.catDot, { backgroundColor: catColor }]} />
                 <Text style={styles.catName}>{cat}</Text>
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.xl,
-    paddingTop: 60,
+    paddingTop: Spacing.huge + Spacing.md,
   },
   loading: {
     flex: 1,
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.caption,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: Spacing.xs,
     marginBottom: Spacing.xxl,
   },
   summaryRow: {
@@ -236,12 +237,12 @@ const styles = StyleSheet.create({
   summaryValue: {
     ...Typography.subtitle,
     color: Colors.textPrimary,
-    marginTop: 4,
+    marginTop: Spacing.xs,
   },
   summaryNote: {
     ...Typography.small,
     color: Colors.textMuted,
-    marginTop: 2,
+    marginTop: Spacing.xs,
   },
   sectionTitle: {
     ...Typography.subtitle,
@@ -263,6 +264,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  catRowLast: {
+    borderBottomWidth: 0,
   },
   catLeft: {
     flexDirection: 'row',
@@ -344,7 +348,7 @@ const styles = StyleSheet.create({
     width: 110,
     justifyContent: 'flex-start',
     paddingLeft: Spacing.md,
-    gap: 6,
+    gap: Spacing.xs,
   },
   tableCellTotal: {
     backgroundColor: Colors.primary + '08',

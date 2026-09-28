@@ -13,6 +13,7 @@ import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull 
 import { loadData, toggleDebtPayment } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import ChartBar from '../../src/components/ChartBar';
+import { getOrdinal } from '../../src/components/CalendarPickerModal';
 
 export default function DebtScreen() {
   const [data, setData] = useState<AppData | null>(null);
@@ -110,6 +111,42 @@ export default function DebtScreen() {
             <Text style={styles.summaryLabel}>Tenure</Text>
             <Text style={[styles.summaryValue, { color: Colors.accent }]}>
               {data.debtTenure} mo
+            </Text>
+          </View>
+        </View>
+
+        {/* Badges / Status & EMI Due Schedule Row */}
+        <View style={styles.badgeRow}>
+          {(data.debtInterestRate === undefined || data.debtInterestRate === 0) ? (
+            <View style={styles.halalBadge}>
+              <Ionicons name="leaf" size={13} color={Colors.accentGreen} />
+              <Text style={styles.halalBadgeText}>
+                0% Interest • Halal
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.conventionalBadge}>
+              <Ionicons name="alert-circle-outline" size={13} color={Colors.accentAmber} />
+              <Text style={styles.conventionalBadgeText}>
+                {data.debtInterestRate}% Annual Interest
+              </Text>
+            </View>
+          )}
+
+          <View style={[
+            styles.emiScheduleBadge,
+            data.debtReminderEnabled === false && styles.emiScheduleBadgeMuted
+          ]}>
+            <Ionicons
+              name={data.debtReminderEnabled !== false ? "notifications" : "calendar-outline"}
+              size={13}
+              color={data.debtReminderEnabled !== false ? Colors.primaryLight : Colors.textSecondary}
+            />
+            <Text style={[
+              styles.emiScheduleBadgeText,
+              data.debtReminderEnabled === false && styles.emiScheduleBadgeTextMuted
+            ]}>
+              EMI Date: {getOrdinal(data.debtEmiDay || 15)}{data.debtReminderEnabled !== false ? ' • Reminder On' : ''}
             </Text>
           </View>
         </View>
@@ -251,7 +288,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.xl,
-    paddingTop: 60,
+    paddingTop: Spacing.huge + Spacing.md,
   },
   loading: {
     flex: 1,
@@ -271,7 +308,7 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.caption,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: Spacing.xs,
     marginBottom: Spacing.xxl,
   },
   summaryCard: {
@@ -294,7 +331,7 @@ const styles = StyleSheet.create({
   },
   summaryDivider: {
     width: 1,
-    height: 40,
+    height: Spacing.huge,
     backgroundColor: Colors.border,
   },
   summaryLabel: {
@@ -302,11 +339,77 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   summaryValue: {
     ...Typography.subtitle,
     color: Colors.textPrimary,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  halalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.accentGreen + '15',
+    borderWidth: 1,
+    borderColor: Colors.accentGreen + '35',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+  },
+  halalBadgeText: {
+    ...Typography.small,
+    color: Colors.accentGreen,
+    fontWeight: '700',
+  },
+  conventionalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.accentAmber + '15',
+    borderWidth: 1,
+    borderColor: Colors.accentAmber + '35',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+  },
+  conventionalBadgeText: {
+    ...Typography.small,
+    color: Colors.accentAmber,
+    fontWeight: '700',
+  },
+  emiScheduleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.primary + '18',
+    borderWidth: 1,
+    borderColor: Colors.primary + '35',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+  },
+  emiScheduleBadgeText: {
+    ...Typography.small,
+    color: Colors.primaryLight,
+    fontWeight: '700',
+  },
+  emiScheduleBadgeMuted: {
+    backgroundColor: Colors.surfaceHighlight,
+    borderColor: Colors.border,
+  },
+  emiScheduleBadgeTextMuted: {
+    color: Colors.textSecondary,
   },
   progressSection: {
     borderTopWidth: 1,
@@ -416,7 +519,7 @@ const styles = StyleSheet.create({
   clearedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.xs,
     backgroundColor: Colors.accentGreen + '20',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
@@ -435,7 +538,7 @@ const styles = StyleSheet.create({
   paymentDetailLabel: {
     ...Typography.small,
     color: Colors.textMuted,
-    marginBottom: 2,
+    marginBottom: Spacing.xs,
   },
   paymentDetailValue: {
     ...Typography.bodyBold,
@@ -472,10 +575,10 @@ const styles = StyleSheet.create({
   paidBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.xs,
     backgroundColor: Colors.surfaceHighlight,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
     borderColor: Colors.border,

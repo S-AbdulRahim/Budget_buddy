@@ -75,14 +75,27 @@ export async function toggleDebtPayment(month: string): Promise<AppData> {
 export async function updateSettings(
   salary: number,
   categories: Category[],
-  debt: { total: number; emi: number; startMonth: string },
+  debt: { total: number; emi: number; startMonth: string; interestRate?: number; emiDay?: number; reminderEnabled?: boolean },
   investments: Investment[]
 ): Promise<AppData> {
   const currentData = await loadData();
   
-  const debtPayments = generateDebtSchedule(debt.total, debt.emi, debt.startMonth);
+  const interestRate = debt.interestRate ?? 0;
+  const debtPayments = generateDebtSchedule(debt.total, debt.emi, debt.startMonth, interestRate);
   const annualProjections = generateAnnualProjections(categories);
   
+  // Extract or preserve emiDay
+  let emiDay = debt.emiDay;
+  if (!emiDay && debt.startMonth) {
+    const dayMatch = debt.startMonth.match(/^(\d{1,2})\b/);
+    if (dayMatch) {
+      emiDay = parseInt(dayMatch[1], 10);
+    }
+  }
+  if (!emiDay) {
+    emiDay = currentData.debtEmiDay || 15;
+  }
+
   // Map out previous paid months if the debt configuration is similar, or just map them by index/month
   const prevPaymentsMap = new Map(currentData.debtPayments.map(p => [p.month, p.isPaid]));
   const updatedPayments = debtPayments.map(p => ({
@@ -98,6 +111,9 @@ export async function updateSettings(
     debtEmi: debt.emi,
     debtTenure: updatedPayments.length,
     debtStartMonth: debt.startMonth,
+    debtInterestRate: interestRate,
+    debtEmiDay: emiDay,
+    debtReminderEnabled: debt.reminderEnabled ?? currentData.debtReminderEnabled ?? true,
     debtPayments: updatedPayments,
     investments,
     annualProjections,

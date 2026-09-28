@@ -35,6 +35,7 @@ export interface Investment {
   allocation: number; // percentage
   color: string;
   isActive: boolean;
+  icon?: string;
 }
 
 export interface MonthlyProjection {
@@ -54,5 +55,8 @@ export interface AppData {
   debtEmi: number;
   debtTenure: number;
   debtStartMonth?: string;
+  debtInterestRate?: number;
+  debtEmiDay?: number;
+  debtReminderEnabled?: boolean;
   isSetupCompleted?: boolean;
 }

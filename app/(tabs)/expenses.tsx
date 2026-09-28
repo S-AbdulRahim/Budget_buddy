@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -15,12 +14,14 @@ import { loadData, addExpense, deleteExpense } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import ExpenseItem from '../../src/components/ExpenseItem';
 import AddExpenseModal from '../../src/components/AddExpenseModal';
+import ConfirmModal from '../../src/components/ConfirmModal';
 
 export default function ExpensesScreen() {
   const [data, setData] = useState<AppData | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<string>('All');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; description: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     const loaded = await loadData();
@@ -52,21 +53,15 @@ export default function ExpensesScreen() {
   };
 
   const handleDelete = (id: string, description: string) => {
-    Alert.alert(
-      'Delete Expense',
-      `Are you sure you want to delete "${description}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const updated = await deleteExpense(id);
-            setData(updated);
-          },
-        },
-      ]
-    );
+    setDeleteTarget({ id, description });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteTarget) {
+      const updated = await deleteExpense(deleteTarget.id);
+      setData(updated);
+      setDeleteTarget(null);
+    }
   };
 
   if (!data) {
@@ -155,7 +150,7 @@ export default function ExpensesScreen() {
           ))
         )}
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: Spacing.huge * 2 }} />
       </ScrollView>
 
       {/* FAB */}
@@ -167,12 +162,25 @@ export default function ExpensesScreen() {
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* Modal */}
+      {/* Add Expense Modal */}
       <AddExpenseModal
         visible={showModal}
         onClose={() => setShowModal(false)}
         onAdd={handleAddExpense}
         categories={data.categories}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        visible={deleteTarget !== null}
+        title="Delete Expense"
+        message={`Are you sure you want to delete "${deleteTarget?.description}"?`}
+        cancelText="Cancel"
+        confirmText="Delete"
+        confirmStyle="destructive"
+        icon="trash-outline"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
       />
     </View>
   );
@@ -185,7 +193,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.xl,
-    paddingTop: 60,
+    paddingTop: Spacing.huge + Spacing.md,
   },
   loading: {
     flex: 1,
@@ -211,7 +219,7 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.caption,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: Spacing.xs,
   },
   totalBadge: {
     alignItems: 'flex-end',
@@ -225,7 +233,7 @@ const styles = StyleSheet.create({
   totalValue: {
     ...Typography.subtitle,
     color: Colors.accentRed,
-    marginTop: 2,
+    marginTop: Spacing.xs,
   },
   filterScroll: {
     marginBottom: Spacing.xl,
@@ -274,7 +282,7 @@ const styles = StyleSheet.create({
     right: Spacing.xl,
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: BorderRadius.full,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',

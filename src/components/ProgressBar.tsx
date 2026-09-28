@@ -64,9 +64,7 @@ export default function ProgressBar({ label, spent, budget, color, showAmount = 
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: Spacing.lg,
-  },
+  container: {},
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

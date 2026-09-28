@@ -53,6 +53,6 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.small,
     color: Colors.textMuted,
-    marginTop: 2,
+    marginTop: Spacing.xs,
   },
 });
