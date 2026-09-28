@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums, withAlpha } from '../theme';
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -14,7 +14,7 @@ interface StatCardProps {
 export default function StatCard({ icon, label, value, color, subtitle }: StatCardProps) {
   return (
     <View style={[styles.card, { borderLeftColor: color }]}>
-      <View style={[styles.iconWrap, { backgroundColor: color + '20' }]}>  
+      <View style={[styles.iconWrap, { backgroundColor: withAlpha(color, 0.15) }]}>  
         <Ionicons name={icon} size={20} color={color} />
       </View>
       <Text style={styles.label}>{label}</Text>

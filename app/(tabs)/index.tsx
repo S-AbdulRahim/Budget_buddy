@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrency, TabularNums } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrency, TabularNums, withAlpha } from '../../src/theme';
 import { loadData } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import StatCard from '../../src/components/StatCard';
@@ -198,12 +198,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.accentGreen + '15',
+    backgroundColor: withAlpha(Colors.accentGreen, 0.12),
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.accentGreen + '30',
+    borderColor: withAlpha(Colors.accentGreen, 0.25),
   },
   salaryText: {
     ...Typography.caption,

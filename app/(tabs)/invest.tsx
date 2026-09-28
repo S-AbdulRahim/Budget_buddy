@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums, withAlpha } from '../../src/theme';
 import { loadData } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 
@@ -166,51 +166,74 @@ export default function InvestScreen() {
         <>
           {/* Fund Cards */}
           <Text style={styles.sectionTitle}>Investment & Savings Goals</Text>
-          {data.investments.filter(fund => fund.monthlyAmount > 0).map(fund => (
-            <View key={fund.id} style={[styles.fundCard, !debtCleared && styles.fundCardLocked]}>
-              <View style={styles.fundHeader}>
-                <View style={[styles.fundIconWrap, { backgroundColor: fund.color + '20' }]}>
-                  <Ionicons
-                    name={getGoalIcon(fund)}
-                    size={22}
-                    color={fund.color}
-                  />
-                </View>
-                <View style={styles.fundInfo}>
-                  <Text style={styles.fundName}>{fund.name}</Text>
-                  <Text style={styles.fundType}>{fund.type}</Text>
-                </View>
-                <View style={styles.fundAmountWrap}>
-                  <Text style={[styles.fundAmount, { color: fund.color }]}>
-                    {formatCurrencyFull(fund.monthlyAmount)}
-                  </Text>
-                  <Text style={styles.fundPer}>/month</Text>
-                </View>
-              </View>
+          {data.investments.filter(fund => fund.monthlyAmount > 0).map(fund => {
+            const hasTarget = !!fund.targetAmount && fund.targetAmount > 0;
+            const etaMonths = hasTarget && fund.monthlyAmount > 0 ? Math.ceil(fund.targetAmount! / fund.monthlyAmount) : 0;
+            const etaYears = (etaMonths / 12).toFixed(1);
 
-              {/* Allocation Bar */}
-              <View style={styles.fundAllocation}>
-                <View style={styles.fundAllocationHeader}>
-                  <Text style={styles.fundAllocationLabel}>Allocation</Text>
-                  <Text style={[styles.fundAllocationPercent, { color: fund.color }]}>
-                    {fund.allocation}%
+            return (
+              <View key={fund.id} style={[styles.fundCard, !debtCleared && styles.fundCardLocked]}>
+                <View style={styles.fundHeader}>
+                  <View style={[styles.fundIconWrap, { backgroundColor: withAlpha(fund.color, 0.15) }]}>
+                    <Ionicons
+                      name={getGoalIcon(fund)}
+                      size={22}
+                      color={fund.color}
+                    />
+                  </View>
+                  <View style={styles.fundInfo}>
+                    <Text style={styles.fundName}>{fund.name}</Text>
+                    <Text style={styles.fundType}>{fund.type}</Text>
+                  </View>
+                  <View style={styles.fundAmountWrap}>
+                    <Text style={[styles.fundAmount, { color: fund.color }]}>
+                      {formatCurrencyFull(fund.monthlyAmount)}
+                    </Text>
+                    <Text style={styles.fundPer}>/month</Text>
+                  </View>
+                </View>
+
+                {/* Optional Target Amount & Timeline */}
+                {hasTarget && (
+                  <View style={styles.fundTargetRow}>
+                    <View style={styles.fundTargetLeft}>
+                      <Ionicons name="flag-outline" size={14} color={Colors.primaryLight} />
+                      <Text style={styles.fundTargetText}>
+                        Target: {formatCurrencyFull(fund.targetAmount!)}
+                      </Text>
+                    </View>
+                    {etaMonths > 0 && (
+                      <Text style={styles.fundEtaText}>
+                        ~{etaMonths} mo ({etaYears} yr)
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {/* Allocation Bar */}
+                <View style={styles.fundAllocation}>
+                  <View style={styles.fundAllocationHeader}>
+                    <Text style={styles.fundAllocationLabel}>Allocation</Text>
+                    <Text style={[styles.fundAllocationPercent, { color: fund.color }]}>
+                      {fund.allocation}%
+                    </Text>
+                  </View>
+                  <AllocationBar value={fund.allocation} maxValue={100} color={fund.color} />
+                </View>
+
+                {/* Status */}
+                <View style={styles.fundStatus}>
+                  <View style={[
+                    styles.statusDot,
+                    { backgroundColor: debtCleared ? Colors.accentGreen : Colors.textMuted },
+                  ]} />
+                  <Text style={styles.statusText}>
+                    {debtCleared ? 'Active — Auto-debit enabled' : 'Pending — Starts after debt clearance'}
                   </Text>
                 </View>
-                <AllocationBar value={fund.allocation} maxValue={100} color={fund.color} />
               </View>
-
-              {/* Status */}
-              <View style={styles.fundStatus}>
-                <View style={[
-                  styles.statusDot,
-                  { backgroundColor: debtCleared ? Colors.accentGreen : Colors.textMuted },
-                ]} />
-                <Text style={styles.statusText}>
-                  {debtCleared ? 'Active — Auto-debit enabled' : 'Pending — Starts after debt clearance'}
-                </Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </>
       )}
 
@@ -262,19 +285,19 @@ const styles = StyleSheet.create({
   },
   lockBanner: {
     flexDirection: 'row',
-    backgroundColor: Colors.accentAmber + '10',
+    backgroundColor: withAlpha(Colors.accentAmber, 0.08),
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.xl,
     borderWidth: 1,
-    borderColor: Colors.accentAmber + '30',
+    borderColor: withAlpha(Colors.accentAmber, 0.25),
     gap: Spacing.md,
   },
   lockIconWrap: {
     width: 40,
     height: 40,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.accentAmber + '20',
+    backgroundColor: withAlpha(Colors.accentAmber, 0.15),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -321,12 +344,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.accentGreen + '15',
+    backgroundColor: withAlpha(Colors.accentGreen, 0.12),
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.accentGreen + '30',
+    borderColor: withAlpha(Colors.accentGreen, 0.25),
   },
   sipBadgeText: {
     ...Typography.small,
@@ -356,7 +379,7 @@ const styles = StyleSheet.create({
   fundHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   fundIconWrap: {
     width: 44,
@@ -388,6 +411,34 @@ const styles = StyleSheet.create({
   fundPer: {
     ...Typography.small,
     color: Colors.textMuted,
+  },
+  fundTargetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surfaceHighlight,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: withAlpha(Colors.border, 0.6),
+  },
+  fundTargetLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  fundTargetText: {
+    ...Typography.small,
+    color: Colors.textSecondary,
+    ...TabularNums,
+  },
+  fundEtaText: {
+    ...Typography.small,
+    color: Colors.primaryLight,
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
   },
   fundAllocation: {
     marginBottom: Spacing.md,

@@ -84,6 +84,16 @@ to the theme file rather than inlining a one-off value.
   - `category*` colors — for the expense-breakdown chart and category tags
     only. These exist purely to keep categories visually distinguishable;
     don't repurpose them as status indicators.
+  - `groupNeeds` / `groupWants` / `groupSavings` — standard 50/30/20 budget
+    group indicators.
+  - `onPrimary` (`#FFFFFF`) — for any text or icons rendered on top of
+    primary buttons, colored badges, or gradients. **Never write `#fff` or
+    `#ffffff` directly in components.**
+  - **Color opacity & alpha:** Never use string concatenation to append hex
+    alpha channels (e.g. `Colors.primary + '20'`). Always use `withAlpha(color, alpha)`
+    from `src/theme/index.ts` (accepts numeric `0.0`–`1.0` or hex string `'20'`).
+    This produces valid `rgba(...)` strings that work reliably on both native
+    and web, avoiding string concatenation bugs.
   - Never rely on color alone to convey status — pair it with an icon or
     label, both for accessibility and because category/status colors can
     sit close in hue.
@@ -208,6 +218,36 @@ to the theme file rather than inlining a one-off value.
   `storage.ts` persistence layer is the deliberate architecture. Revisit
   only if a genuine cross-screen real-time sync need emerges.
 
+### Budget architecture (50/30/20 Framework)
+- Categories must be classified into one of three `CategoryGroup` values:
+  `'Needs'`, `'Wants'`, or `'Savings'`.
+  - **Needs (50% target):** Essential survival & obligations (Rent, Groceries,
+    Utilities, Healthcare, Commute).
+  - **Wants (30% target):** Discretionary lifestyle spending (Dining Out,
+    Shopping, Subscriptions, Entertainment).
+  - **Savings (20% target):** Future security (Emergency Fund, Halal SIPs,
+    Gold, Debt payoff).
+- Every category in `budgetData.ts` and loaded from storage has a `group`
+  property. Category group benchmark bars and subtotals must be surfaced in
+  both Onboarding and Settings to guide users toward balance.
+- When creating an expense in `AddExpenseModal`, the expense type (`Need` vs
+  `Want`) automatically defaults according to the selected category's group
+  (`Needs` -> `Need`, `Wants` -> `Want`).
+
+### Brand system (`BrandMark`)
+- Use `<BrandMark />` (`src/components/BrandMark.tsx`) for the official app
+  logo and wordmark across onboarding, splash, headers, and completion screens.
+- **Visual anatomy:**
+  - Container: Rounded square with diagonal linear gradient (`Colors.primaryLight`
+    to `Colors.primaryDark`).
+  - Glyph: Pure white wallet icon (`wallet-outline`) in `Colors.onPrimary`.
+  - Coin accent: Gold metallic dot (`Colors.accentGold`) anchored at the
+    top-right of the icon container.
+  - Wordmark: Dual-tone Poppins bold (`"Budget"` in `Colors.textPrimary`,
+    `"Buddy"` in `Colors.primaryLight`).
+- Brand SVG master files are stored in `assets/brand/` (`logo.svg` and
+  `logo-with-wordmark.svg`).
+
 ---
 
 ## 4. Known platform gotchas (keep this list updated)
@@ -228,3 +268,17 @@ get silently reintroduced by a future change:
 - `autoFocus` on a `TextInput` is not guaranteed to refire across
   conditionally-rendered steps in a multi-step form on web — see Section 3,
   Forms & input.
+- **Horizontal ScrollView width on Web:** A horizontal `ScrollView` inside a
+  flex container with `alignItems: 'center'` will expand indefinitely to the
+  total width of all child cards on `react-native-web`, causing carousel cards
+  to show side-by-side instead of paginating. To fix: clamp the card width
+  explicitly (`Math.max(280, Math.min(width - Spacing.xl * 2, 420))`), set
+  `style={{ width: cardWidth, flexGrow: 0 }}` directly on the `ScrollView`,
+  and apply `overflow: 'hidden'` on the outer wrapper.
+- **Carousel keyboard navigation:** On web, desktop users expect `ArrowLeft`
+  and `ArrowRight` arrow keys to page through horizontal slides. Always attach
+  a `window.addEventListener('keydown', ...)` listener on web carousels.
+- **Android custom font `fontWeight`:** Android's font manager completely
+  ignores `fontWeight` when a custom `fontFamily` (like Poppins or Inter) is
+  specified. Each weight must be imported as a standalone `fontFamily` name,
+  and `fontWeight` must **never** be used on custom fonts.

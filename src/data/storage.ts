@@ -1,7 +1,12 @@
 // AsyncStorage wrapper for data persistence
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppData, Expense, Category, Investment } from '../types';
-import { INITIAL_EMPTY_DATA, generateDebtSchedule, generateAnnualProjections } from './budgetData';
+import {
+  INITIAL_EMPTY_DATA,
+  DEFAULT_CATEGORY_GROUPS,
+  generateDebtSchedule,
+  generateAnnualProjections,
+} from './budgetData';
 
 const STORAGE_KEY = '@budget_buddy_data';
 
@@ -9,7 +14,24 @@ export async function loadData(): Promise<AppData> {
   try {
     const json = await AsyncStorage.getItem(STORAGE_KEY);
     if (json) {
-      return JSON.parse(json) as AppData;
+      const data = JSON.parse(json) as AppData;
+      let hasMigration = false;
+      if (data.categories) {
+        data.categories = data.categories.map(cat => {
+          if (!cat.group) {
+            hasMigration = true;
+            return {
+              ...cat,
+              group: DEFAULT_CATEGORY_GROUPS[cat.name] || 'Wants',
+            };
+          }
+          return cat;
+        });
+      }
+      if (hasMigration) {
+        await saveData(data);
+      }
+      return data;
     }
     // First launch — seed with empty configured data
     await saveData(INITIAL_EMPTY_DATA);

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4FD1C5" />
+      <stop offset="100%" stop-color="#0A6E64" />
+    </linearGradient>
+    <filter id="markShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Diagonal Gradient Squircle Background -->
+  <rect x="40" y="40" width="432" height="432" rx="108" fill="url(#brandGradient)" filter="url(#markShadow)" />
+
+  <!-- Clean White Wallet Glyph -->
+  <g fill="#FFFFFF">
+    <!-- Wallet Main Compartment -->
+    <path d="M 136 172 C 136 154 150 140 168 140 L 344 140 C 362 140 376 154 376 172 L 376 340 C 376 358 362 372 344 372 L 168 372 C 150 372 136 358 136 340 Z" opacity="0.96" />
+    <!-- Wallet Front Card Pocket / Flap -->
+    <path d="M 264 214 L 376 214 L 376 298 L 264 298 C 241 298 222 279 222 256 C 222 233 241 214 264 214 Z" fill="#F0F2F8" />
+    <!-- Clasp Lock Dot -->
+    <circle cx="274" cy="256" r="14" fill="#0A6E64" />
+  </g>
+
+  <!-- Gold Coin Accent Dot at Top Right -->
+  <circle cx="398" cy="114" r="42" fill="#C9A24E" stroke="#0A0E1A" stroke-width="12" />
+  <circle cx="398" cy="114" r="28" fill="none" stroke="#E5C778" stroke-width="4" stroke-dasharray="6,4" />
+  <circle cx="398" cy="114" r="14" fill="#E5C778" />
+</svg>

@@ -16,6 +16,8 @@ export const Colors = {
   textPrimary: '#F0F2F8',
   textSecondary: '#8B92A8',
   textMuted: '#5A6178',
+  onPrimary: '#FFFFFF',
+  white: '#FFFFFF',
 
   // Brand — was violet (#6C5CE7), now a deep teal.
   // Distinct from the red/amber/green status colors below, so it never
@@ -23,6 +25,11 @@ export const Colors = {
   primary: '#0F9B8E',
   primaryLight: '#4FD1C5',
   primaryDark: '#0A6E64',
+
+  // 50/30/20 Category Groups
+  groupNeeds: '#4FD1C5',
+  groupWants: '#D97757',
+  groupSavings: '#C9A24E',
 
   // Secondary accent — was neon cyan (#00D2FF), now a muted gold.
   // Used for the Savings Rate stat, badges, and other non-status highlights.
@@ -209,4 +216,37 @@ export function formatCurrency(amount: number): string {
 
 export function formatCurrencyFull(amount: number): string {
   return `₹${amount.toLocaleString('en-IN')}`;
+}
+
+export function withAlpha(color: string, alpha: number | string): string {
+  let numAlpha: number;
+  if (typeof alpha === 'number') {
+    numAlpha = Math.max(0, Math.min(1, alpha));
+  } else {
+    if (alpha.includes('.')) {
+      numAlpha = Math.max(0, Math.min(1, parseFloat(alpha) || 0));
+    } else {
+      const hexVal = parseInt(alpha, 16);
+      numAlpha = isNaN(hexVal) ? 1 : Math.round((hexVal / 255) * 100) / 100;
+    }
+  }
+
+  if (color.startsWith('#')) {
+    const hex = color.replace('#', '').slice(0, 6);
+    if (hex.length === 6) {
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${numAlpha})`;
+    }
+    if (hex.length === 3) {
+      const r = parseInt(hex[0] + hex[0], 16);
+      const g = parseInt(hex[1] + hex[1], 16);
+      const b = parseInt(hex[2] + hex[2], 16);
+      return `rgba(${r}, ${g}, ${b}, ${numAlpha})`;
+    }
+  } else if (color.startsWith('rgb(')) {
+    return color.replace('rgb(', 'rgba(').replace(')', `, ${numAlpha})`);
+  }
+  return color;
 }

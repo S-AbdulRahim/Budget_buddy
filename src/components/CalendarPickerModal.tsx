@@ -8,7 +8,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums, withAlpha } from '../theme';
 
 interface CalendarPickerModalProps {
   visible: boolean;
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   dayCellTextSelected: {
-    color: '#fff',
+    color: Colors.onPrimary,
     fontFamily: Typography.bodyBold.fontFamily,
   },
   monthsGrid: {
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   monthCellTextSelected: {
-    color: '#fff',
+    color: Colors.onPrimary,
   },
   yearRow: {
     flexDirection: 'row',
@@ -445,16 +445,16 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   yearChipTextActive: {
-    color: '#fff',
+    color: Colors.onPrimary,
     fontFamily: Typography.bodyBold.fontFamily,
   },
   selectionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.primary + '15',
+    backgroundColor: withAlpha(Colors.primary, 0.12),
     borderWidth: 1,
-    borderColor: Colors.primary + '35',
+    borderColor: withAlpha(Colors.primary, 0.28),
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.lg,
@@ -499,6 +499,6 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     ...Typography.bodyBold,
-    color: '#fff',
+    color: Colors.onPrimary,
   },
 });

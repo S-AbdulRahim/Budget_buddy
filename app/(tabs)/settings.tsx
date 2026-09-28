@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums, withAlpha, formatCurrencyFull } from '../../src/theme';
 import { loadData, updateSettings, resetData } from '../../src/data/storage';
-import { AppData, Category, Investment } from '../../src/types';
+import { AppData, Category, CategoryGroup, Investment } from '../../src/types';
 import ConfirmModal from '../../src/components/ConfirmModal';
 import CalendarPickerModal, { getOrdinal } from '../../src/components/CalendarPickerModal';
 import { POPULAR_GOAL_PRESETS, GOAL_COLORS, GoalPreset } from '../../src/data/budgetData';
@@ -63,12 +63,16 @@ export default function SettingsScreen() {
   const [newGoalName, setNewGoalName] = useState('');
   const [newGoalType, setNewGoalType] = useState('');
   const [newGoalAmount, setNewGoalAmount] = useState('');
+  const [newGoalTarget, setNewGoalTarget] = useState('');
+  const [showGoalTargetField, setShowGoalTargetField] = useState(false);
+  const [expandedGoalTargets, setExpandedGoalTargets] = useState<Record<string, boolean>>({});
   const [showAddGoalForm, setShowAddGoalForm] = useState(false);
   const [goalToDelete, setGoalToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Add custom category state
   const [newCatName, setNewCatName] = useState('');
   const [newCatBudget, setNewCatBudget] = useState('');
+  const [newCatGroup, setNewCatGroup] = useState<CategoryGroup>('Needs');
 
   const fetchData = useCallback(async () => {
     const loaded = await loadData();
@@ -267,10 +271,16 @@ export default function SettingsScreen() {
     const newCategory: Category = {
       id: Date.now().toString(),
       name: cleanName,
-      icon: 'ellipsis-horizontal-circle', // Default custom icon
-      color: Colors.accent, // Default custom color
+      icon: 'ellipsis-horizontal-circle',
+      color:
+        newCatGroup === 'Needs'
+          ? Colors.groupNeeds
+          : newCatGroup === 'Wants'
+          ? Colors.groupWants
+          : Colors.groupSavings,
       budget: budgetVal,
       spent: 0,
+      group: newCatGroup,
     };
 
     setCategories(prev => [...prev, newCategory]);
@@ -282,6 +292,13 @@ export default function SettingsScreen() {
     const numeric = parseFloat(text.replace(/[^0-9]/g, '')) || 0;
     setInvestments(prev =>
       prev.map(inv => (inv.id === id ? { ...inv, monthlyAmount: numeric } : inv))
+    );
+  };
+
+  const handleUpdateInvestTarget = (id: string, text: string) => {
+    const numeric = parseFloat(text.replace(/[^0-9]/g, '')) || undefined;
+    setInvestments(prev =>
+      prev.map(inv => (inv.id === id ? { ...inv, targetAmount: numeric } : inv))
     );
   };
 
@@ -310,6 +327,7 @@ export default function SettingsScreen() {
       type: preset.type,
       color: preset.color,
       monthlyAmount: preset.defaultAmount,
+      targetAmount: preset.targetAmount,
       allocation: 0,
       isActive: false,
       icon: preset.icon,
@@ -334,12 +352,14 @@ export default function SettingsScreen() {
       return;
     }
     const amountVal = parseFloat(newGoalAmount.replace(/[^0-9]/g, '')) || 0;
+    const targetVal = parseFloat(newGoalTarget.replace(/[^0-9]/g, '')) || undefined;
     const newInv: Investment = {
       id: Date.now().toString(),
       name: cleanName,
       type: newGoalType.trim() || 'Custom Goal',
       color: GOAL_COLORS[investments.length % GOAL_COLORS.length],
       monthlyAmount: amountVal,
+      targetAmount: targetVal,
       allocation: 0,
       isActive: false,
       icon: 'flag-outline',
@@ -348,6 +368,8 @@ export default function SettingsScreen() {
     setNewGoalName('');
     setNewGoalType('');
     setNewGoalAmount('');
+    setNewGoalTarget('');
+    setShowGoalTargetField(false);
     setShowAddGoalForm(false);
   };
 
@@ -414,45 +436,107 @@ export default function SettingsScreen() {
             </Text>
           </View>
 
-          <View style={styles.card}>
-            {categories.map((cat, index) => (
-              <View
-                key={cat.id}
-                style={[
-                  styles.categoryRow,
-                  index === categories.length - 1 && styles.categoryRowLast,
-                ]}
-              >
-                <View style={styles.categoryInfo}>
-                  <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
-                  <Text style={styles.categoryName}>{cat.name}</Text>
-                </View>
-                
-                <View style={styles.categoryRowRight}>
-                  <View style={styles.smallInputWrap}>
-                    <Text style={styles.smallInputSymbol}>₹</Text>
-                    <TextInput
-                      style={styles.smallTextInput}
-                      keyboardType="numeric"
-                      value={cat.budget.toString()}
-                      onChangeText={text => handleUpdateCategoryBudget(cat.id, text)}
-                      cursorColor={Colors.primaryLight}
-                      selectionColor={Colors.primary}
-                    />
-                  </View>
-                  <TouchableOpacity
-                    style={styles.deleteCatButton}
-                    onPress={() => handleDeleteCategory(cat.id, cat.name)}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+          {([
+            { key: 'Needs' as CategoryGroup, title: 'Needs (50% target)', color: Colors.groupNeeds, icon: 'home-outline' as const },
+            { key: 'Wants' as CategoryGroup, title: 'Wants (30% target)', color: Colors.groupWants, icon: 'cart-outline' as const },
+            { key: 'Savings' as CategoryGroup, title: 'Savings & Debt (20% target)', color: Colors.groupSavings, icon: 'wallet-outline' as const },
+          ]).map(group => {
+            const groupCats = categories.filter(c => (c.group || 'Needs') === group.key);
+            const groupSubtotal = groupCats.reduce((sum, c) => sum + c.budget, 0);
+            const parsedSal = parseFloat(salary) || 1;
+            const groupPct = Math.round((groupSubtotal / parsedSal) * 100);
 
-            {/* Add Custom Category */}
+            return (
+              <View key={group.key} style={[styles.card, { marginBottom: Spacing.md }]}>
+                <View style={styles.groupSubHeader}>
+                  <View style={styles.groupSubTitleRow}>
+                    <Ionicons name={group.icon} size={16} color={group.color} />
+                    <Text style={[styles.groupSubTitle, { color: group.color }]}>{group.title}</Text>
+                  </View>
+                  <Text style={styles.groupSubAmount}>
+                    {formatCurrencyFull(groupSubtotal)} ({groupPct}%)
+                  </Text>
+                </View>
+
+                {groupCats.length === 0 ? (
+                  <Text style={styles.emptyGroupText}>No categories in this group.</Text>
+                ) : (
+                  groupCats.map((cat, index) => (
+                    <View
+                      key={cat.id}
+                      style={[
+                        styles.categoryRow,
+                        index === groupCats.length - 1 && styles.categoryRowLast,
+                      ]}
+                    >
+                      <View style={styles.categoryInfo}>
+                        <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
+                        <Text style={styles.categoryName}>{cat.name}</Text>
+                      </View>
+                      
+                      <View style={styles.categoryRowRight}>
+                        <View style={styles.smallInputWrap}>
+                          <Text style={styles.smallInputSymbol}>₹</Text>
+                          <TextInput
+                            style={styles.smallTextInput}
+                            keyboardType="numeric"
+                            value={cat.budget.toString()}
+                            onChangeText={text => handleUpdateCategoryBudget(cat.id, text)}
+                            cursorColor={Colors.primaryLight}
+                            selectionColor={Colors.primary}
+                          />
+                        </View>
+                        <TouchableOpacity
+                          style={styles.deleteCatButton}
+                          onPress={() => handleDeleteCategory(cat.id, cat.name)}
+                          accessibilityLabel={`Delete ${cat.name}`}
+                        >
+                          <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            );
+          })}
+
+          {/* Add Custom Category */}
+          <View style={styles.card}>
             <View style={styles.addCategoryForm}>
               <Text style={styles.addCategoryTitle}>Add Custom Category</Text>
+
+              {/* Group Selector Chips */}
+              <View style={styles.groupSelectorRow}>
+                {(['Needs', 'Wants', 'Savings'] as CategoryGroup[]).map(g => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[
+                      styles.groupSelectorChip,
+                      newCatGroup === g && {
+                        backgroundColor: withAlpha(
+                          g === 'Needs' ? Colors.groupNeeds : g === 'Wants' ? Colors.groupWants : Colors.groupSavings,
+                          0.2
+                        ),
+                        borderColor: g === 'Needs' ? Colors.groupNeeds : g === 'Wants' ? Colors.groupWants : Colors.groupSavings,
+                      },
+                    ]}
+                    onPress={() => setNewCatGroup(g)}
+                  >
+                    <Text
+                      style={[
+                        styles.groupSelectorChipText,
+                        newCatGroup === g && {
+                          color: g === 'Needs' ? Colors.groupNeeds : g === 'Wants' ? Colors.groupWants : Colors.groupSavings,
+                        },
+                      ]}
+                    >
+                      {g}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <View style={styles.addCategoryRow}>
                 <TextInput
                   style={[styles.addCategoryInput, { flex: 1.5 }]}
@@ -477,7 +561,7 @@ export default function SettingsScreen() {
                   />
                 </View>
                 <TouchableOpacity style={styles.addCatButton} onPress={handleAddCategory}>
-                  <Ionicons name="add" size={20} color="#fff" />
+                  <Ionicons name="add" size={20} color={Colors.onPrimary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -591,7 +675,7 @@ export default function SettingsScreen() {
                   >
                     <View style={[styles.checkboxBox, debtReminderEnabled && styles.checkboxBoxChecked]}>
                       {debtReminderEnabled && (
-                        <Ionicons name="checkmark" size={14} color="#fff" />
+                        <Ionicons name="checkmark" size={14} color={Colors.onPrimary} />
                       )}
                     </View>
                     <View style={styles.reminderCheckContent}>
@@ -634,10 +718,10 @@ export default function SettingsScreen() {
 
             {hasInvestments && (
               <View style={styles.formContent}>
-                {/* Popular Presets Bar */}
+                {/* Popular Presets with Multi-Row Wrapping */}
                 <View style={styles.presetSection}>
                   <Text style={styles.presetSectionTitle}>Quick Add Suggestions:</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
+                  <View style={styles.presetWrap}>
                     {POPULAR_GOAL_PRESETS.map(preset => {
                       const isAdded = investments.some(inv => inv.name.toLowerCase() === preset.name.toLowerCase());
                       return (
@@ -658,7 +742,7 @@ export default function SettingsScreen() {
                         </TouchableOpacity>
                       );
                     })}
-                  </ScrollView>
+                  </View>
                 </View>
 
                 {/* Goals List */}
@@ -670,37 +754,90 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 ) : (
-                  investments.map(inv => (
-                    <View key={inv.id} style={styles.investRow}>
-                      <View style={[styles.goalIconWrap, { backgroundColor: (inv.color || Colors.primary) + '20' }]}>
-                        <Ionicons name={(inv.icon as any) || 'flag'} size={18} color={inv.color || Colors.primary} />
-                      </View>
-                      <View style={styles.goalInfoWrap}>
-                        <Text style={styles.investName} numberOfLines={1}>{inv.name}</Text>
-                        <Text style={styles.investType} numberOfLines={1}>{inv.type}</Text>
-                      </View>
-                      <View style={styles.goalRightWrap}>
-                        <View style={styles.smallInputWrap}>
-                          <Text style={styles.smallInputSymbol}>₹</Text>
-                          <TextInput
-                            style={styles.smallTextInput}
-                            keyboardType="numeric"
-                            value={inv.monthlyAmount.toString()}
-                            onChangeText={text => handleUpdateInvestAmount(inv.id, text)}
-                            cursorColor={Colors.primaryLight}
-                            selectionColor={Colors.primary}
-                          />
+                  <View style={styles.goalsListContainer}>
+                    <Text style={styles.goalsListTitle}>Monthly contribution</Text>
+                    {investments.map(inv => {
+                      const hasTarget = !!inv.targetAmount && inv.targetAmount > 0;
+                      const isExpanded = expandedGoalTargets[inv.id] || hasTarget;
+                      let etaText = '';
+                      if (hasTarget && inv.monthlyAmount > 0) {
+                        const months = Math.ceil(inv.targetAmount! / inv.monthlyAmount);
+                        const years = (months / 12).toFixed(1);
+                        etaText = `Estimated: ~${months} mo (${years} yr)`;
+                      }
+
+                      return (
+                        <View key={inv.id} style={styles.goalCard}>
+                          <View style={styles.investRow}>
+                            <View style={[styles.goalIconWrap, { backgroundColor: withAlpha(inv.color || Colors.primary, 0.15) }]}>
+                              <Ionicons name={(inv.icon as any) || 'flag'} size={18} color={inv.color || Colors.primary} />
+                            </View>
+                            <View style={styles.goalInfoWrap}>
+                              <Text style={styles.investName} numberOfLines={1}>{inv.name}</Text>
+                              <Text style={styles.investType} numberOfLines={1}>{inv.type}</Text>
+                            </View>
+                            <View style={styles.goalRightWrap}>
+                              <View style={styles.monthlyInputWrap}>
+                                <Text style={styles.smallInputSymbol}>₹</Text>
+                                <TextInput
+                                  style={styles.smallTextInput}
+                                  keyboardType="numeric"
+                                  value={inv.monthlyAmount.toString()}
+                                  onChangeText={text => handleUpdateInvestAmount(inv.id, text)}
+                                  cursorColor={Colors.primaryLight}
+                                  selectionColor={Colors.primary}
+                                />
+                                <Text style={styles.perMonthSuffix}>/ mo</Text>
+                              </View>
+                              <TouchableOpacity
+                                style={styles.deleteGoalBtn}
+                                onPress={() => handleDeleteInvest(inv.id, inv.name)}
+                                accessibilityLabel={`Delete ${inv.name}`}
+                              >
+                                <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+
+                          {/* Target Amount & ETA */}
+                          {isExpanded ? (
+                            <View style={styles.targetSection}>
+                              <View style={styles.targetRow}>
+                                <Text style={styles.targetFieldLabel}>Target Goal:</Text>
+                                <View style={styles.targetInputBox}>
+                                  <Text style={styles.smallInputSymbol}>₹</Text>
+                                  <TextInput
+                                    style={styles.smallTextInput}
+                                    placeholder="Total (e.g. 1,00,000)"
+                                    placeholderTextColor={Colors.textMuted}
+                                    keyboardType="numeric"
+                                    value={inv.targetAmount ? inv.targetAmount.toString() : ''}
+                                    onChangeText={text => handleUpdateInvestTarget(inv.id, text)}
+                                    cursorColor={Colors.primaryLight}
+                                    selectionColor={Colors.primary}
+                                  />
+                                </View>
+                              </View>
+                              {etaText ? (
+                                <View style={styles.etaBadge}>
+                                  <Ionicons name="time-outline" size={14} color={Colors.primaryLight} />
+                                  <Text style={styles.etaText}>{etaText}</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                          ) : (
+                            <TouchableOpacity
+                              style={styles.setTargetBtn}
+                              onPress={() => setExpandedGoalTargets(prev => ({ ...prev, [inv.id]: true }))}
+                            >
+                              <Ionicons name="add" size={14} color={Colors.primaryLight} />
+                              <Text style={styles.setTargetBtnText}>Set a target amount (optional)</Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
-                        <TouchableOpacity
-                          style={styles.deleteGoalBtn}
-                          onPress={() => handleDeleteInvest(inv.id, inv.name)}
-                          accessibilityLabel={`Delete ${inv.name}`}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))
+                      );
+                    })}
+                  </View>
                 )}
 
                 {/* Add Custom Goal Section */}
@@ -739,11 +876,11 @@ export default function SettingsScreen() {
                         cursorColor={Colors.primaryLight}
                         selectionColor={Colors.primary}
                       />
-                      <View style={[styles.smallInputWrap, { flex: 1, height: 40 }]}>
+                      <View style={[styles.monthlyInputWrap, { flex: 1, height: 40 }]}>
                         <Text style={styles.smallInputSymbol}>₹</Text>
                         <TextInput
                           style={styles.smallTextInput}
-                          placeholder="Amount"
+                          placeholder="Monthly"
                           placeholderTextColor={Colors.textMuted}
                           keyboardType="numeric"
                           value={newGoalAmount}
@@ -751,13 +888,43 @@ export default function SettingsScreen() {
                           cursorColor={Colors.primaryLight}
                           selectionColor={Colors.primary}
                         />
+                        <Text style={styles.perMonthSuffix}>/ mo</Text>
                       </View>
                     </View>
+
+                    {/* Optional Target for Custom Goal */}
+                    {showGoalTargetField ? (
+                      <View style={styles.targetRow}>
+                        <Text style={styles.targetFieldLabel}>Target Goal:</Text>
+                        <View style={styles.targetInputBox}>
+                          <Text style={styles.smallInputSymbol}>₹</Text>
+                          <TextInput
+                            style={styles.smallTextInput}
+                            placeholder="e.g. 1,00,000"
+                            placeholderTextColor={Colors.textMuted}
+                            keyboardType="numeric"
+                            value={newGoalTarget}
+                            onChangeText={setNewGoalTarget}
+                            cursorColor={Colors.primaryLight}
+                            selectionColor={Colors.primary}
+                          />
+                        </View>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.setTargetBtn}
+                        onPress={() => setShowGoalTargetField(true)}
+                      >
+                        <Ionicons name="add" size={14} color={Colors.primaryLight} />
+                        <Text style={styles.setTargetBtnText}>Set a target amount (optional)</Text>
+                      </TouchableOpacity>
+                    )}
+
                     <TouchableOpacity
                       style={styles.addGoalConfirmBtn}
                       onPress={handleAddCustomGoal}
                     >
-                      <Ionicons name="add" size={18} color="#fff" />
+                      <Ionicons name="add" size={18} color={Colors.onPrimary} />
                       <Text style={styles.addGoalConfirmBtnText}>Add Goal</Text>
                     </TouchableOpacity>
                   </View>
@@ -778,7 +945,7 @@ export default function SettingsScreen() {
               Clears the local database and returns the application to its first-launch onboarding state.
             </Text>
             <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-              <Ionicons name="alert-circle-outline" size={20} color="#fff" />
+              <Ionicons name="alert-circle-outline" size={20} color={Colors.onPrimary} />
               <Text style={styles.resetButtonText}>Reset Application Data</Text>
             </TouchableOpacity>
           </View>
@@ -786,7 +953,7 @@ export default function SettingsScreen() {
 
         {/* Save Actions */}
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Ionicons name="checkmark-done" size={22} color="#fff" />
+          <Ionicons name="checkmark-done" size={22} color={Colors.onPrimary} />
           <Text style={styles.saveButtonText}>Save Configurations</Text>
         </TouchableOpacity>
 
@@ -1127,7 +1294,7 @@ const styles = StyleSheet.create({
   },
   toggleCircleActive: {
     alignSelf: 'flex-end',
-    backgroundColor: '#fff',
+    backgroundColor: Colors.onPrimary,
   },
   formContent: {
     marginTop: Spacing.xl,
@@ -1140,9 +1307,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.accentGreen + '15',
+    backgroundColor: withAlpha(Colors.accentGreen, 0.12),
     borderWidth: 1,
-    borderColor: Colors.accentGreen + '35',
+    borderColor: withAlpha(Colors.accentGreen, 0.28),
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
   },
@@ -1160,9 +1327,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.accentAmber + '15',
+    backgroundColor: withAlpha(Colors.accentAmber, 0.12),
     borderWidth: 1,
-    borderColor: Colors.accentAmber + '35',
+    borderColor: withAlpha(Colors.accentAmber, 0.28),
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
   },
@@ -1252,7 +1419,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
-    backgroundColor: Colors.surfaceHighlight + '40',
+    backgroundColor: withAlpha(Colors.surfaceHighlight, 0.3),
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -1327,11 +1494,11 @@ const styles = StyleSheet.create({
   },
   addGoalConfirmBtnText: {
     ...Typography.bodyBold,
-    color: '#fff',
+    color: Colors.onPrimary,
   },
   resetCard: {
-    borderColor: Colors.accentRed + '40',
-    backgroundColor: Colors.accentRed + '05',
+    borderColor: withAlpha(Colors.accentRed, 0.25),
+    backgroundColor: withAlpha(Colors.accentRed, 0.05),
     gap: Spacing.lg,
   },
   resetText: {
@@ -1350,7 +1517,7 @@ const styles = StyleSheet.create({
   },
   resetButtonText: {
     ...Typography.bodyBold,
-    color: '#fff',
+    color: Colors.onPrimary,
   },
   saveButton: {
     flexDirection: 'row',
@@ -1365,6 +1532,146 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     ...Typography.subtitle,
-    color: '#fff',
+    color: Colors.onPrimary,
+  },
+
+  // Category Groups in Settings
+  groupSubHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    paddingBottom: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: withAlpha(Colors.border, 0.5),
+  },
+  groupSubTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  groupSubTitle: {
+    ...Typography.bodyBold,
+  },
+  groupSubAmount: {
+    ...Typography.caption,
+    ...TabularNums,
+    color: Colors.textSecondary,
+  },
+  emptyGroupText: {
+    ...Typography.small,
+    color: Colors.textMuted,
+    paddingVertical: Spacing.sm,
+  },
+  groupSelectorRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  groupSelectorChip: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceHighlight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupSelectorChipText: {
+    ...Typography.small,
+    fontFamily: Typography.bodyBold.fontFamily,
+    color: Colors.textSecondary,
+  },
+
+  // Goals List with Monthly & Target
+  presetWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  goalsListContainer: {
+    gap: Spacing.md,
+  },
+  goalsListTitle: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontFamily: Typography.bodyBold.fontFamily,
+  },
+  goalCard: {
+    backgroundColor: Colors.surfaceHighlight,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.xs,
+  },
+  monthlyInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    width: 110,
+    height: 36,
+  },
+  perMonthSuffix: {
+    ...Typography.small,
+    color: Colors.textMuted,
+    marginLeft: 2,
+  },
+  targetSection: {
+    paddingTop: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: withAlpha(Colors.border, 0.5),
+    gap: Spacing.xs,
+  },
+  targetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  targetFieldLabel: {
+    ...Typography.small,
+    color: Colors.textSecondary,
+  },
+  targetInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    width: 140,
+    height: 32,
+  },
+  etaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-end',
+    backgroundColor: withAlpha(Colors.primary, 0.12),
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  etaText: {
+    ...Typography.small,
+    color: Colors.primaryLight,
+    ...TabularNums,
+  },
+  setTargetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 2,
+  },
+  setTargetBtnText: {
+    ...Typography.small,
+    color: Colors.primaryLight,
   },
 });

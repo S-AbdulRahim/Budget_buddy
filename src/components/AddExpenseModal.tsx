@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, withAlpha } from '../theme';
 import { Category } from '../types';
 
 interface AddExpenseModalProps {
@@ -36,6 +36,15 @@ export default function AddExpenseModal({ visible, onClose, onAdd, categories }:
   const [selectedCategory, setSelectedCategory] = useState('');
   const [paymentMode, setPaymentMode] = useState<typeof PAYMENT_MODES[number]>('UPI');
   const [expenseType, setExpenseType] = useState<'Need' | 'Want'>('Need');
+
+  const handleSelectCategory = (cat: Category) => {
+    setSelectedCategory(cat.name);
+    if (cat.group === 'Needs') {
+      setExpenseType('Need');
+    } else if (cat.group === 'Wants') {
+      setExpenseType('Want');
+    }
+  };
 
   const handleAdd = () => {
     if (!description.trim() || !amount || !selectedCategory) return;
@@ -113,11 +122,11 @@ export default function AddExpenseModal({ visible, onClose, onAdd, categories }:
                   style={[
                     styles.chip,
                     selectedCategory === cat.name && {
-                      backgroundColor: cat.color + '30',
+                      backgroundColor: withAlpha(cat.color, 0.2),
                       borderColor: cat.color,
                     },
                   ]}
-                  onPress={() => setSelectedCategory(cat.name)}
+                  onPress={() => handleSelectCategory(cat)}
                 >
                   <Text
                     style={[
@@ -140,7 +149,7 @@ export default function AddExpenseModal({ visible, onClose, onAdd, categories }:
                   style={[
                     styles.chip,
                     paymentMode === mode && {
-                      backgroundColor: Colors.primary + '30',
+                      backgroundColor: withAlpha(Colors.primary, 0.2),
                       borderColor: Colors.primary,
                     },
                   ]}
@@ -164,7 +173,10 @@ export default function AddExpenseModal({ visible, onClose, onAdd, categories }:
               <TouchableOpacity
                 style={[
                   styles.toggleBtn,
-                  expenseType === 'Need' && { backgroundColor: Colors.accentGreen + '20', borderColor: Colors.accentGreen },
+                  expenseType === 'Need' && {
+                    backgroundColor: withAlpha(Colors.accentGreen, 0.15),
+                    borderColor: Colors.accentGreen,
+                  },
                 ]}
                 onPress={() => setExpenseType('Need')}
               >
@@ -180,7 +192,10 @@ export default function AddExpenseModal({ visible, onClose, onAdd, categories }:
               <TouchableOpacity
                 style={[
                   styles.toggleBtn,
-                  expenseType === 'Want' && { backgroundColor: Colors.accentPink + '20', borderColor: Colors.accentPink },
+                  expenseType === 'Want' && {
+                    backgroundColor: withAlpha(Colors.accentPink, 0.15),
+                    borderColor: Colors.accentPink,
+                  },
                 ]}
                 onPress={() => setExpenseType('Want')}
               >
@@ -202,7 +217,7 @@ export default function AddExpenseModal({ visible, onClose, onAdd, categories }:
             onPress={handleAdd}
             disabled={!isValid}
           >
-            <Ionicons name="add-circle" size={22} color="#fff" />
+            <Ionicons name="add-circle" size={22} color={Colors.onPrimary} />
             <Text style={styles.submitText}>Add Expense</Text>
           </TouchableOpacity>
         </View>
@@ -328,6 +343,6 @@ const styles = StyleSheet.create({
   },
   submitText: {
     ...Typography.bodyBold,
-    color: '#fff',
+    color: Colors.onPrimary,
   },
 });

@@ -39,6 +39,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'Budget Buddy — Smart Personal Finance';
       const styleId = 'budget-buddy-global-web-styles';
       let style = document.getElementById(styleId) as HTMLStyleElement | null;
       if (!style) {

@@ -10,6 +10,8 @@ export interface Expense {
   type: 'Need' | 'Want';
 }
 
+export type CategoryGroup = 'Needs' | 'Wants' | 'Savings';
+
 export interface Category {
   id: string;
   name: string;
@@ -17,6 +19,7 @@ export interface Category {
   budget: number;
   spent: number;
   color: string;
+  group?: CategoryGroup;
 }
 
 export interface DebtPayment {
@@ -36,6 +39,7 @@ export interface Investment {
   color: string;
   isActive: boolean;
   icon?: string;
+  targetAmount?: number;
 }
 
 export interface MonthlyProjection {

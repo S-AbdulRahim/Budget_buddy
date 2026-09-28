@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums, withAlpha } from '../../src/theme';
 import { loadData, toggleDebtPayment } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import ChartBar from '../../src/components/ChartBar';
@@ -215,7 +215,7 @@ export default function DebtScreen() {
                 disabled={payment.remainingBalance === 0}
               >
                 {(payment.isPaid || payment.remainingBalance === 0) && (
-                  <Ionicons name="checkmark" size={12} color="#fff" />
+                  <Ionicons name="checkmark" size={12} color={Colors.onPrimary} />
                 )}
               </TouchableOpacity>
               {index < data.debtPayments.length - 1 && <View style={styles.paymentLine} />}
@@ -358,9 +358,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.accentGreen + '15',
+    backgroundColor: withAlpha(Colors.accentGreen, 0.12),
     borderWidth: 1,
-    borderColor: Colors.accentGreen + '35',
+    borderColor: withAlpha(Colors.accentGreen, 0.28),
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.full,
@@ -375,9 +375,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.accentAmber + '15',
+    backgroundColor: withAlpha(Colors.accentAmber, 0.12),
     borderWidth: 1,
-    borderColor: Colors.accentAmber + '35',
+    borderColor: withAlpha(Colors.accentAmber, 0.28),
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.full,
@@ -392,9 +392,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.primary + '18',
+    backgroundColor: withAlpha(Colors.primary, 0.12),
     borderWidth: 1,
-    borderColor: Colors.primary + '35',
+    borderColor: withAlpha(Colors.primary, 0.28),
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.full,
@@ -504,8 +504,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   paymentCardCleared: {
-    borderColor: Colors.accentGreen + '40',
-    backgroundColor: Colors.accentGreen + '08',
+    borderColor: withAlpha(Colors.accentGreen, 0.35),
+    backgroundColor: withAlpha(Colors.accentGreen, 0.08),
   },
   paymentCardHeader: {
     flexDirection: 'row',
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.accentGreen + '20',
+    backgroundColor: withAlpha(Colors.accentGreen, 0.15),
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.full,
@@ -586,8 +586,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   paidBadgeActive: {
-    backgroundColor: Colors.accentGreen + '15',
-    borderColor: Colors.accentGreen + '30',
+    backgroundColor: withAlpha(Colors.accentGreen, 0.12),
+    borderColor: withAlpha(Colors.accentGreen, 0.25),
   },
   paidBadgeText: {
     ...Typography.small,

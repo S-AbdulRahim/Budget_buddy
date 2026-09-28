@@ -1,5 +1,17 @@
 // Default budget data seeded from the user's Excel spreadsheet
-import { AppData, Category, DebtPayment, MonthlyProjection } from '../types';
+import { AppData, Category, CategoryGroup, DebtPayment, MonthlyProjection } from '../types';
+import { Colors } from '../theme';
+
+export const DEFAULT_CATEGORY_GROUPS: Record<string, CategoryGroup> = {
+  Rent: 'Needs',
+  Groceries: 'Needs',
+  Transportation: 'Needs',
+  Utilities: 'Needs',
+  Healthcare: 'Needs',
+  Entertainment: 'Wants',
+  Shopping: 'Wants',
+  Savings: 'Savings',
+};
 
 export function generateDebtSchedule(total: number, emi: number, startMonthStr: string, interestRate: number = 0): DebtPayment[] {
   if (total <= 0 || emi <= 0) return [];
@@ -91,14 +103,14 @@ export const INITIAL_EMPTY_DATA: AppData = {
   salary: 0,
   
   categories: [
-    { id: '1', name: 'Rent', icon: 'home', budget: 0, spent: 0, color: '#6C5CE7' },
-    { id: '2', name: 'Groceries', icon: 'cart', budget: 0, spent: 0, color: '#00E676' },
-    { id: '3', name: 'Transportation', icon: 'car', budget: 0, spent: 0, color: '#00D2FF' },
-    { id: '4', name: 'Utilities', icon: 'flash', budget: 0, spent: 0, color: '#FFB74D' },
-    { id: '5', name: 'Entertainment', icon: 'game-controller', budget: 0, spent: 0, color: '#FF6B9D' },
-    { id: '6', name: 'Shopping', icon: 'bag-handle', budget: 0, spent: 0, color: '#FF5252' },
-    { id: '7', name: 'Healthcare', icon: 'medkit', budget: 0, spent: 0, color: '#26C6DA' },
-    { id: '8', name: 'Savings', icon: 'wallet', budget: 0, spent: 0, color: '#7C4DFF' },
+    { id: '1', name: 'Rent', icon: 'home', budget: 0, spent: 0, color: Colors.categoryRent, group: 'Needs' },
+    { id: '2', name: 'Groceries', icon: 'cart', budget: 0, spent: 0, color: Colors.categoryGroceries, group: 'Needs' },
+    { id: '3', name: 'Transportation', icon: 'car', budget: 0, spent: 0, color: Colors.categoryTransport, group: 'Needs' },
+    { id: '4', name: 'Utilities', icon: 'flash', budget: 0, spent: 0, color: Colors.categoryUtilities, group: 'Needs' },
+    { id: '5', name: 'Entertainment', icon: 'game-controller', budget: 0, spent: 0, color: Colors.categoryEntertainment, group: 'Wants' },
+    { id: '6', name: 'Shopping', icon: 'bag-handle', budget: 0, spent: 0, color: Colors.categoryShopping, group: 'Wants' },
+    { id: '7', name: 'Healthcare', icon: 'medkit', budget: 0, spent: 0, color: Colors.categoryHealthcare, group: 'Needs' },
+    { id: '8', name: 'Savings', icon: 'wallet', budget: 0, spent: 0, color: Colors.categorySavings, group: 'Savings' },
   ],
   
   expenses: [],
@@ -120,9 +132,10 @@ export const INITIAL_EMPTY_DATA: AppData = {
       type: 'Safety Net',
       monthlyAmount: 0,
       allocation: 0,
-      color: '#3DBE7B',
+      color: Colors.accentGreen,
       isActive: false,
       icon: 'shield-checkmark-outline',
+      targetAmount: 150000,
     },
     {
       id: '2',
@@ -130,9 +143,10 @@ export const INITIAL_EMPTY_DATA: AppData = {
       type: 'Long-term Growth',
       monthlyAmount: 0,
       allocation: 0,
-      color: '#8B7FE8',
+      color: Colors.categoryRent,
       isActive: false,
       icon: 'trending-up-outline',
+      targetAmount: 1000000,
     },
     {
       id: '3',
@@ -140,9 +154,10 @@ export const INITIAL_EMPTY_DATA: AppData = {
       type: 'Targeted Savings',
       monthlyAmount: 0,
       allocation: 0,
-      color: '#F2A93B',
+      color: Colors.accentAmber,
       isActive: false,
       icon: 'airplane-outline',
+      targetAmount: 50000,
     },
     {
       id: '4',
@@ -150,9 +165,10 @@ export const INITIAL_EMPTY_DATA: AppData = {
       type: 'Passive Wealth',
       monthlyAmount: 0,
       allocation: 0,
-      color: '#4FD1C5',
+      color: Colors.primaryLight,
       isActive: false,
       icon: 'leaf-outline',
+      targetAmount: 300000,
     },
   ],
   
@@ -169,18 +185,26 @@ export interface GoalPreset {
   defaultAmount: number;
   icon: string;
   color: string;
+  targetAmount?: number;
 }
 
 export const POPULAR_GOAL_PRESETS: GoalPreset[] = [
-  { name: 'Emergency Fund', type: 'Safety Net', defaultAmount: 5000, icon: 'shield-checkmark-outline', color: '#3DBE7B' },
-  { name: 'Retirement Wealth', type: 'Long-term Growth', defaultAmount: 5000, icon: 'trending-up-outline', color: '#8B7FE8' },
-  { name: 'Travel & Vacation', type: 'Experiences', defaultAmount: 3000, icon: 'airplane-outline', color: '#F2A93B' },
-  { name: 'Education Fund', type: 'Future Planning', defaultAmount: 4000, icon: 'school-outline', color: '#4FD1C5' },
-  { name: 'New Home Fund', type: 'Property Goal', defaultAmount: 10000, icon: 'home-outline', color: '#D97757' },
-  { name: 'Vehicle Fund', type: 'Asset Goal', defaultAmount: 5000, icon: 'car-outline', color: '#26C6DA' },
-  { name: 'Index Fund SIP', type: 'Passive Wealth', defaultAmount: 5000, icon: 'leaf-outline', color: '#C9A24E' },
+  { name: 'Emergency Fund', type: 'Safety Net', defaultAmount: 5000, targetAmount: 150000, icon: 'shield-checkmark-outline', color: Colors.accentGreen },
+  { name: 'Retirement Wealth', type: 'Long-term Growth', defaultAmount: 5000, targetAmount: 1000000, icon: 'trending-up-outline', color: Colors.categoryRent },
+  { name: 'Travel & Vacation', type: 'Experiences', defaultAmount: 3000, targetAmount: 50000, icon: 'airplane-outline', color: Colors.accentAmber },
+  { name: 'Education Fund', type: 'Future Planning', defaultAmount: 4000, targetAmount: 200000, icon: 'school-outline', color: Colors.primaryLight },
+  { name: 'New Home Fund', type: 'Property Goal', defaultAmount: 10000, targetAmount: 500000, icon: 'home-outline', color: Colors.accentPink },
+  { name: 'Vehicle Fund', type: 'Asset Goal', defaultAmount: 5000, targetAmount: 150000, icon: 'car-outline', color: Colors.categoryHealthcare },
+  { name: 'Index Fund SIP', type: 'Passive Wealth', defaultAmount: 5000, targetAmount: 300000, icon: 'leaf-outline', color: Colors.accent },
 ];
 
 export const GOAL_COLORS = [
-  '#3DBE7B', '#8B7FE8', '#F2A93B', '#4FD1C5', '#D97757', '#26C6DA', '#E5555C', '#C9A24E'
+  Colors.accentGreen,
+  Colors.categoryRent,
+  Colors.accentAmber,
+  Colors.primaryLight,
+  Colors.accentPink,
+  Colors.categoryHealthcare,
+  Colors.accentRed,
+  Colors.accent,
 ];

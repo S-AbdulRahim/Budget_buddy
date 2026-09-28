@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums, getCategoryColor, getCategoryIcon } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums, getCategoryColor, getCategoryIcon, withAlpha } from '../theme';
 
 interface ExpenseItemProps {
   description: string;
@@ -32,7 +32,7 @@ export default function ExpenseItem({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.iconWrap, { backgroundColor: catColor + '20' }]}>
+      <View style={[styles.iconWrap, { backgroundColor: withAlpha(catColor, 0.15) }]}>
         <Ionicons name={catIcon as any} size={22} color={catColor} />
       </View>
       
@@ -54,8 +54,8 @@ export default function ExpenseItem({
               {
                 backgroundColor:
                   paymentMode === 'UPI'
-                    ? Colors.primary + '20'
-                    : Colors.accent + '20',
+                    ? withAlpha(Colors.primary, 0.15)
+                    : withAlpha(Colors.accent, 0.15),
               },
             ]}
           >
@@ -77,8 +77,8 @@ export default function ExpenseItem({
               {
                 backgroundColor:
                   type === 'Need'
-                    ? Colors.accentGreen + '20'
-                    : Colors.accentPink + '20',
+                    ? withAlpha(Colors.accentGreen, 0.15)
+                    : withAlpha(Colors.accentPink, 0.15),
               },
             ]}
           >

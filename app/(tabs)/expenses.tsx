@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, withAlpha } from '../../src/theme';
 import { loadData, addExpense, deleteExpense } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import ExpenseItem from '../../src/components/ExpenseItem';
@@ -159,7 +159,7 @@ export default function ExpensesScreen() {
         onPress={() => setShowModal(true)}
         activeOpacity={0.8}
       >
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={28} color={Colors.onPrimary} />
       </TouchableOpacity>
 
       {/* Add Expense Modal */}
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   filterChipActive: {
-    backgroundColor: Colors.primary + '20',
+    backgroundColor: withAlpha(Colors.primary, 0.15),
     borderColor: Colors.primary,
   },
   filterText: {

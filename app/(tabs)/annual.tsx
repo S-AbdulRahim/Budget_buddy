@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, getCategoryColor, TabularNums } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, getCategoryColor, TabularNums, withAlpha } from '../../src/theme';
 import { loadData } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 
@@ -324,12 +324,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   tableRowAlt: {
-    backgroundColor: Colors.surfaceHighlight + '40',
+    backgroundColor: withAlpha(Colors.surfaceHighlight, 0.4),
   },
   tableRowTotal: {
-    backgroundColor: Colors.primary + '10',
+    backgroundColor: withAlpha(Colors.primary, 0.1),
     borderTopWidth: 2,
-    borderTopColor: Colors.primary + '30',
+    borderTopColor: withAlpha(Colors.primary, 0.3),
   },
   tableCell: {
     width: 65,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   tableCellTotal: {
-    backgroundColor: Colors.primary + '08',
+    backgroundColor: withAlpha(Colors.primary, 0.08),
   },
   tableCellTotalHighlight: {
     color: Colors.primary,

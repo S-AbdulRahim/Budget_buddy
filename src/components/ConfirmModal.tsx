@@ -8,7 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, withAlpha } from '../theme';
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -52,7 +52,7 @@ export default function ConfirmModal({
               <View
                 style={[
                   styles.iconWrap,
-                  { backgroundColor: confirmColor + '20' },
+                  { backgroundColor: withAlpha(confirmColor, 0.15) },
                 ]}
               >
                 <Ionicons name={icon} size={28} color={confirmColor} />
@@ -156,6 +156,6 @@ const styles = StyleSheet.create({
   },
   confirmText: {
     ...Typography.bodyBold,
-    color: '#ffffff',
+    color: Colors.onPrimary,
   },
 });

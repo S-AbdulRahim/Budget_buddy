@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240">
+  <defs>
+    <linearGradient id="brandGradientHoriz" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4FD1C5" />
+      <stop offset="100%" stop-color="#0A6E64" />
+    </linearGradient>
+    <filter id="markShadowHoriz" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Logomark (Left) -->
+  <g transform="translate(40, 20)">
+    <!-- Diagonal Gradient Squircle Background -->
+    <rect x="0" y="0" width="200" height="200" rx="50" fill="url(#brandGradientHoriz)" filter="url(#markShadowHoriz)" />
+
+    <!-- Clean White Wallet Glyph -->
+    <g fill="#FFFFFF">
+      <path d="M 45 60 C 45 52 51 46 59 46 L 141 46 C 149 46 155 52 155 60 L 155 140 C 155 148 149 154 141 154 L 59 154 C 51 154 45 148 45 140 Z" opacity="0.96" />
+      <path d="M 104 80 L 155 80 L 155 120 L 104 120 C 93 120 84 111 84 100 C 84 89 93 80 104 80 Z" fill="#F0F2F8" />
+      <circle cx="108" cy="100" r="7" fill="#0A6E64" />
+    </g>
+
+    <!-- Gold Coin Accent Dot at Top Right -->
+    <circle cx="182" cy="18" r="20" fill="#C9A24E" stroke="#0A0E1A" stroke-width="6" />
+    <circle cx="182" cy="18" r="7" fill="#E5C778" />
+  </g>
+
+  <!-- Wordmark (Right) -->
+  <text x="280" y="132" font-family="'Poppins', sans-serif" font-weight="700" font-size="64" letter-spacing="-1">
+    <tspan fill="#F0F2F8">Budget </tspan>
+    <tspan fill="#4FD1C5">Buddy</tspan>
+  </text>
+  <text x="282" y="165" font-family="'Inter', sans-serif" font-weight="500" font-size="18" fill="#8B92A8" letter-spacing="1">
+    SMART PERSONAL FINANCE
+  </text>
+</svg>
