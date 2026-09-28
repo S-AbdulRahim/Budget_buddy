@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, StyleSheet } from 'react-native';
-import { Colors, Spacing, BorderRadius, Shadows } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../../src/theme';
 
 export default function TabLayout() {
   return (
@@ -84,9 +84,7 @@ const styles = StyleSheet.create({
     ...Shadows.elevated,
   },
   tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.3,
+    ...Typography.badge,
   },
   tabItem: {
     gap: Spacing.xs,

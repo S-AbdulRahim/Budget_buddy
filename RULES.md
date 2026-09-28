@@ -39,17 +39,22 @@ can't be recolored to match theme state, and don't scale cleanly with
 
 ### Reference mapping (extend this table, don't fork it)
 
-| Context                  | Icon name              |
-|---------------------------|-------------------------|
-| Monthly income             | `cash-outline`          |
-| Budgets & categories       | `pie-chart-outline`     |
-| Debt / payoff              | `trending-down-outline` |
-| Halal / SIP / investing    | `leaf-outline`          |
-| Settings / system ops      | `settings-outline`      |
-| Destructive action         | `warning-outline`       |
-| Success / cleared          | `checkmark-circle`      |
-| Add / create               | `add-circle-outline`    |
-| Delete                     | `trash-outline`         |
+| Context                  | Icon name                 |
+|---------------------------|----------------------------|
+| Monthly income            | `cash-outline`             |
+| Budgets & categories      | `pie-chart-outline`        |
+| Debt / payoff             | `trending-down-outline`    |
+| Halal / SIP / investing   | `leaf-outline`             |
+| Settings / system ops     | `settings-outline`         |
+| Destructive action        | `warning-outline`          |
+| Success / cleared         | `checkmark-circle`         |
+| Add / create              | `add-circle-outline`       |
+| Delete                    | `trash-outline`            |
+| Welcome / wallet overview | `wallet-outline`           |
+| Growth & milestones       | `rocket-outline`           |
+| Local data trust & privacy| `shield-checkmark-outline` |
+| Helpful tips & hints      | `bulb-outline`             |
+| Savings goals & targets   | `flag-outline`             |
 
 If a new section needs an icon not listed here, add it to this table in the
 same commit — this table is the single source of truth for icon choices,
@@ -86,10 +91,31 @@ to the theme file rather than inlining a one-off value.
   `marginTop: 14` when `Spacing.md` (12) or `Spacing.lg` (16) is the
   intended rhythm — pick the nearest token rather than splitting the
   difference with a magic number.
-- **Typography** — use the named scale (`hero`, `title`, `subtitle`,
-  `body`, `bodyBold`, `caption`, `small`, `number`) via
-  `...Typography.body` spread into a style object, rather than setting
-  `fontSize`/`fontWeight` ad hoc.
+- **Typography** — Two-font design system:
+  - **Poppins** for display and headings (`Poppins_600SemiBold`,
+    `Poppins_700Bold`).
+  - **Inter** for body text, labels, and all numbers (`Inter_400Regular`,
+    `Inter_500Medium`, `Inter_600SemiBold`, `Inter_700Bold`).
+  - **Android per-weight fontFamily rule:** On Android, React Native ignores
+    `fontWeight` for custom fonts. Therefore, **each weight must be its own
+    `fontFamily` string** and `fontWeight` must **never** be used on custom fonts.
+  - Named scale:
+    - `hero` (`Poppins_700Bold`, 32px)
+    - `title` (`Poppins_700Bold`, 24px)
+    - `subtitle` (`Poppins_600SemiBold`, 18px)
+    - `body` (`Inter_400Regular`, 15px)
+    - `bodyBold` (`Inter_600SemiBold`, 15px)
+    - `caption` (`Inter_500Medium`, 13px)
+    - `small` (`Inter_500Medium`, 11px)
+    - `badge` (`Inter_600SemiBold`, 10px)
+    - `number` (`Inter_700Bold`, 28px, tabular-nums)
+  - Always spread tokens via `...Typography.body` rather than setting ad-hoc
+    `fontSize` or `fontWeight`.
+  - **Tabular numbers:** All currency and numeric displays must use
+    `...TabularNums` (`fontVariant: ['tabular-nums']`) so amounts align
+    properly in columns.
+  - **Currency glyphs:** The Indian Rupee glyph (`₹`) is verified present
+    across all weights of Poppins and Inter.
 - **BorderRadius** — `sm|md|lg|xl|xxl|full`, same rule: nearest token, not a
   bespoke number.
 - **Shadows** — use `Shadows.card|elevated|subtle`. Known issue: these are

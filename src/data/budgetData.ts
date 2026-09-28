@@ -116,39 +116,43 @@ export const INITIAL_EMPTY_DATA: AppData = {
   investments: [
     {
       id: '1',
-      name: 'Tata Ethical ELSS Fund',
-      type: 'ELSS (Tax Saving)',
+      name: 'Emergency Fund',
+      type: 'Safety Net',
       monthlyAmount: 0,
       allocation: 0,
-      color: '#6C5CE7',
+      color: '#3DBE7B',
       isActive: false,
+      icon: 'shield-checkmark-outline',
     },
     {
       id: '2',
-      name: 'Nippon India ETF Shariah BeES',
-      type: 'ETF (Shariah)',
+      name: 'Retirement Wealth',
+      type: 'Long-term Growth',
       monthlyAmount: 0,
       allocation: 0,
-      color: '#00D2FF',
+      color: '#8B7FE8',
       isActive: false,
+      icon: 'trending-up-outline',
     },
     {
       id: '3',
-      name: 'Taurus Ethical Fund',
-      type: 'Equity (Ethical)',
+      name: 'Travel & Vacation',
+      type: 'Targeted Savings',
       monthlyAmount: 0,
       allocation: 0,
-      color: '#00E676',
+      color: '#F2A93B',
       isActive: false,
+      icon: 'airplane-outline',
     },
     {
       id: '4',
-      name: 'Umrah Reserve Fund',
-      type: 'Goal-based Saving',
+      name: 'Index Fund SIP',
+      type: 'Passive Wealth',
       monthlyAmount: 0,
       allocation: 0,
-      color: '#FFB74D',
+      color: '#4FD1C5',
       isActive: false,
+      icon: 'leaf-outline',
     },
   ],
   
@@ -168,15 +172,15 @@ export interface GoalPreset {
 }
 
 export const POPULAR_GOAL_PRESETS: GoalPreset[] = [
-  { name: 'Emergency Fund', type: 'Safety Net', defaultAmount: 5000, icon: 'shield-checkmark', color: '#00E676' },
-  { name: 'Retirement Wealth', type: 'Long-term SIP', defaultAmount: 5000, icon: 'trending-up', color: '#6C5CE7' },
-  { name: 'Hajj / Umrah Fund', type: 'Goal-based Saving', defaultAmount: 3000, icon: 'airplane', color: '#FFB74D' },
-  { name: 'Child Education', type: 'Future Planning', defaultAmount: 4000, icon: 'school', color: '#00D2FF' },
-  { name: 'House Down Payment', type: 'Property Goal', defaultAmount: 10000, icon: 'home', color: '#FF6B9D' },
-  { name: 'Gold / Precious Metals', type: 'Asset Hedge', defaultAmount: 3000, icon: 'trophy', color: '#FFD700' },
-  { name: 'Ethical / Halal Index SIP', type: 'Shariah Equity', defaultAmount: 5000, icon: 'leaf', color: '#26C6DA' },
+  { name: 'Emergency Fund', type: 'Safety Net', defaultAmount: 5000, icon: 'shield-checkmark-outline', color: '#3DBE7B' },
+  { name: 'Retirement Wealth', type: 'Long-term Growth', defaultAmount: 5000, icon: 'trending-up-outline', color: '#8B7FE8' },
+  { name: 'Travel & Vacation', type: 'Experiences', defaultAmount: 3000, icon: 'airplane-outline', color: '#F2A93B' },
+  { name: 'Education Fund', type: 'Future Planning', defaultAmount: 4000, icon: 'school-outline', color: '#4FD1C5' },
+  { name: 'New Home Fund', type: 'Property Goal', defaultAmount: 10000, icon: 'home-outline', color: '#D97757' },
+  { name: 'Vehicle Fund', type: 'Asset Goal', defaultAmount: 5000, icon: 'car-outline', color: '#26C6DA' },
+  { name: 'Index Fund SIP', type: 'Passive Wealth', defaultAmount: 5000, icon: 'leaf-outline', color: '#C9A24E' },
 ];
 
 export const GOAL_COLORS = [
-  '#00E676', '#6C5CE7', '#FFB74D', '#00D2FF', '#FF6B9D', '#26C6DA', '#FF5252', '#7C4DFF'
+  '#3DBE7B', '#8B7FE8', '#F2A93B', '#4FD1C5', '#D97757', '#26C6DA', '#E5555C', '#C9A24E'
 ];

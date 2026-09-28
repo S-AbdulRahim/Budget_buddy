@@ -8,7 +8,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums } from '../theme';
 
 interface CalendarPickerModalProps {
   visible: boolean;
@@ -262,7 +262,7 @@ export default function CalendarPickerModal({
             <Ionicons name="notifications-outline" size={18} color={Colors.primaryLight} />
             <View style={{ flex: 1 }}>
               <Text style={styles.selectionBannerText}>
-                EMI Date: <Text style={{ color: Colors.primaryLight, fontWeight: '700' }}>{formattedResult}</Text>
+                EMI Date: <Text style={styles.selectionBannerHighlight}>{formattedResult}</Text>
               </Text>
               <Text style={styles.selectionBannerSubtext}>
                 Recurring monthly reminder on the {getOrdinal(clampedDay)}
@@ -310,8 +310,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   title: {
-    ...Typography.bodyBold,
-    fontSize: 18,
+    ...Typography.subtitle,
     color: Colors.textPrimary,
   },
   subtitle: {
@@ -357,7 +356,7 @@ const styles = StyleSheet.create({
   dayLabelText: {
     ...Typography.small,
     color: Colors.textMuted,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
     width: 36,
     textAlign: 'center',
   },
@@ -379,11 +378,12 @@ const styles = StyleSheet.create({
   },
   dayCellText: {
     ...Typography.caption,
+    ...TabularNums,
     color: Colors.textPrimary,
   },
   dayCellTextSelected: {
     color: '#fff',
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   monthsGrid: {
     flexDirection: 'row',
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   yearRowLabel: {
     ...Typography.caption,
     color: Colors.textSecondary,
-    fontWeight: '600',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   yearButtonGroup: {
     flexDirection: 'row',
@@ -441,11 +441,12 @@ const styles = StyleSheet.create({
   },
   yearChipText: {
     ...Typography.small,
+    ...TabularNums,
     color: Colors.textSecondary,
   },
   yearChipTextActive: {
     color: '#fff',
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   selectionBanner: {
     flexDirection: 'row',
@@ -461,6 +462,12 @@ const styles = StyleSheet.create({
   selectionBannerText: {
     ...Typography.caption,
     color: Colors.textPrimary,
+  },
+  selectionBannerHighlight: {
+    ...Typography.caption,
+    color: Colors.primaryLight,
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
   },
   selectionBannerSubtext: {
     ...Typography.small,

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { Colors, Spacing, BorderRadius, Typography } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, TabularNums } from '../theme';
 
 interface ChartBarProps {
   label: string;
@@ -65,7 +65,8 @@ const styles = StyleSheet.create({
   },
   value: {
     ...Typography.small,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
     marginBottom: Spacing.xs,
   },
   track: {
@@ -80,9 +81,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   label: {
-    ...Typography.small,
+    ...Typography.badge,
     color: Colors.textSecondary,
     marginTop: Spacing.xs,
-    fontSize: 10,
   },
 });

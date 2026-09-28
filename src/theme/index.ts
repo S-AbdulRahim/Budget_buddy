@@ -82,42 +82,61 @@ export const BorderRadius = {
   full: 999,
 };
 
+export const FontFamily = {
+  poppinsBold: 'Poppins_700Bold',
+  poppinsSemiBold: 'Poppins_600SemiBold',
+  interRegular: 'Inter_400Regular',
+  interMedium: 'Inter_500Medium',
+  interSemiBold: 'Inter_600SemiBold',
+  interBold: 'Inter_700Bold',
+};
+
+export const TabularNums = {
+  fontVariant: ['tabular-nums' as const],
+};
+
 export const Typography = {
   hero: {
     fontSize: 32,
-    fontWeight: '800' as const,
+    fontFamily: FontFamily.poppinsBold,
     letterSpacing: -0.5,
   },
   title: {
     fontSize: 24,
-    fontWeight: '700' as const,
+    fontFamily: FontFamily.poppinsBold,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 18,
-    fontWeight: '600' as const,
+    fontFamily: FontFamily.poppinsSemiBold,
   },
   body: {
     fontSize: 15,
-    fontWeight: '400' as const,
+    fontFamily: FontFamily.interRegular,
   },
   bodyBold: {
     fontSize: 15,
-    fontWeight: '600' as const,
+    fontFamily: FontFamily.interSemiBold,
   },
   caption: {
     fontSize: 13,
-    fontWeight: '500' as const,
+    fontFamily: FontFamily.interMedium,
   },
   small: {
     fontSize: 11,
-    fontWeight: '500' as const,
+    fontFamily: FontFamily.interMedium,
     letterSpacing: 0.5,
+  },
+  badge: {
+    fontSize: 10,
+    fontFamily: FontFamily.interSemiBold,
+    letterSpacing: 0.3,
   },
   number: {
     fontSize: 28,
-    fontWeight: '700' as const,
+    fontFamily: FontFamily.interBold,
     letterSpacing: -0.5,
+    fontVariant: ['tabular-nums' as const],
   },
 };
 

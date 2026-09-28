@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums } from '../theme';
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -48,6 +48,7 @@ const styles = StyleSheet.create({
   },
   value: {
     ...Typography.subtitle,
+    ...TabularNums,
     color: Colors.textPrimary,
   },
   subtitle: {

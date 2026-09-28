@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums } from '../../src/theme';
 import { loadData } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   sipBadgeText: {
     ...Typography.small,
     color: Colors.accentGreen,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   sipNote: {
     ...Typography.small,
@@ -383,6 +383,7 @@ const styles = StyleSheet.create({
   },
   fundAmount: {
     ...Typography.bodyBold,
+    ...TabularNums,
   },
   fundPer: {
     ...Typography.small,
@@ -402,7 +403,8 @@ const styles = StyleSheet.create({
   },
   fundAllocationPercent: {
     ...Typography.small,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
   },
   fundStatus: {
     flexDirection: 'row',

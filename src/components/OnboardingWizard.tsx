@@ -8,12 +8,28 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  Dimensions,
+  LayoutChangeEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
+import {
+  Colors,
+  Spacing,
+  BorderRadius,
+  Typography,
+  Shadows,
+  TabularNums,
+  formatCurrencyFull,
+} from '../theme';
 import { Category, Investment } from '../types';
 import { updateSettings } from '../data/storage';
-import { POPULAR_GOAL_PRESETS, GOAL_COLORS, GoalPreset } from '../data/budgetData';
+import {
+  POPULAR_GOAL_PRESETS,
+  GOAL_COLORS,
+  GoalPreset,
+  generateDebtSchedule,
+} from '../data/budgetData';
 import ConfirmModal from './ConfirmModal';
 import CalendarPickerModal, { getOrdinal } from './CalendarPickerModal';
 
@@ -21,7 +37,44 @@ interface OnboardingWizardProps {
   onSuccess: () => void;
 }
 
+interface WizardGoal {
+  id: string;
+  name: string;
+  type: string;
+  color: string;
+  monthlyAmount: string;
+  icon?: string;
+}
+
+const WELCOME_SLIDES = [
+  {
+    id: '1',
+    icon: 'wallet-outline' as const,
+    title: 'Know where every rupee goes',
+    description: 'Track spending by category and see your month at a glance, with no spreadsheets.',
+  },
+  {
+    id: '2',
+    icon: 'trending-down-outline' as const,
+    title: 'Pay off debt on your schedule',
+    description: 'Plan EMIs, get reminders and watch your balance shrink month by month.',
+  },
+  {
+    id: '3',
+    icon: 'rocket-outline' as const,
+    title: 'Grow toward your goals',
+    description: 'Set savings and investment targets and unlock them as your debt clears.',
+  },
+];
+
 export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
+  // Wizard state: 'welcome' -> 'setup' (steps 1-4) -> 'completion'
+  const [stage, setStage] = useState<'welcome' | 'setup' | 'completion'>('welcome');
+  const [welcomeIndex, setWelcomeIndex] = useState(0);
+  const [contentWidth, setContentWidth] = useState(
+    Math.min(Dimensions.get('window').width, 600)
+  );
+
   const [step, setStep] = useState(1);
   const [salary, setSalary] = useState('');
   const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
@@ -32,7 +85,10 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
   const firstCategoryInputRef = useRef<TextInput>(null);
   const debtTotalInputRef = useRef<TextInput>(null);
   const firstInvestInputRef = useRef<TextInput>(null);
+  const welcomeScrollRef = useRef<ScrollView>(null);
 
+  // Subtle entrance animation for completion screen
+  const completionAnim = useRef(new Animated.Value(0)).current;
 
   // Categories state
   const [enabledCategories, setEnabledCategories] = useState<{ [key: string]: boolean }>({
@@ -45,6 +101,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     '7': true, // Healthcare
     '8': true, // Savings
   });
+
   const [categoryBudgets, setCategoryBudgets] = useState<{ [key: string]: string }>({
     '1': '15000',
     '2': '8000',
@@ -55,15 +112,16 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     '7': '2000',
     '8': '7300',
   });
+
   const categoriesList: Omit<Category, 'spent' | 'budget'>[] = [
-    { id: '1', name: 'Rent', icon: 'home', color: '#6C5CE7' },
-    { id: '2', name: 'Groceries', icon: 'cart', color: '#00E676' },
-    { id: '3', name: 'Transportation', icon: 'car', color: '#00D2FF' },
-    { id: '4', name: 'Utilities', icon: 'flash', color: '#FFB74D' },
-    { id: '5', name: 'Entertainment', icon: 'game-controller', color: '#FF6B9D' },
-    { id: '6', name: 'Shopping', icon: 'bag-handle', color: '#FF5252' },
-    { id: '7', name: 'Healthcare', icon: 'medkit', color: '#26C6DA' },
-    { id: '8', name: 'Savings', icon: 'wallet', color: '#7C4DFF' },
+    { id: '1', name: 'Rent', icon: 'home', color: Colors.categoryRent },
+    { id: '2', name: 'Groceries', icon: 'cart', color: Colors.categoryGroceries },
+    { id: '3', name: 'Transportation', icon: 'car', color: Colors.categoryTransport },
+    { id: '4', name: 'Utilities', icon: 'flash', color: Colors.categoryUtilities },
+    { id: '5', name: 'Entertainment', icon: 'game-controller', color: Colors.categoryEntertainment },
+    { id: '6', name: 'Shopping', icon: 'bag-handle', color: Colors.categoryShopping },
+    { id: '7', name: 'Healthcare', icon: 'medkit', color: Colors.categoryHealthcare },
+    { id: '8', name: 'Savings', icon: 'wallet', color: Colors.categorySavings },
   ];
 
   // Debt state
@@ -90,21 +148,40 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
   };
 
   // Investments & Goals state
-  interface WizardGoal {
-    id: string;
-    name: string;
-    type: string;
-    color: string;
-    monthlyAmount: string;
-    icon?: string;
-  }
-
   const [hasInvestments, setHasInvestments] = useState(false);
   const [goals, setGoals] = useState<WizardGoal[]>([
-    { id: '1', name: 'Emergency Fund', type: 'Safety Net', color: '#00E676', monthlyAmount: '5000', icon: 'shield-checkmark' },
-    { id: '2', name: 'Retirement Wealth', type: 'Long-term SIP', color: '#6C5CE7', monthlyAmount: '5000', icon: 'trending-up' },
-    { id: '3', name: 'Hajj / Umrah Fund', type: 'Goal-based Saving', color: '#FFB74D', monthlyAmount: '3000', icon: 'airplane' },
-    { id: '4', name: 'Ethical / Index Fund SIP', type: 'Shariah Equity', color: '#00D2FF', monthlyAmount: '3700', icon: 'leaf' },
+    {
+      id: '1',
+      name: 'Emergency Fund',
+      type: 'Safety Net',
+      color: Colors.accentGreen,
+      monthlyAmount: '5000',
+      icon: 'shield-checkmark-outline',
+    },
+    {
+      id: '2',
+      name: 'Retirement Wealth',
+      type: 'Long-term Growth',
+      color: Colors.categoryRent,
+      monthlyAmount: '5000',
+      icon: 'trending-up-outline',
+    },
+    {
+      id: '3',
+      name: 'Travel & Vacation',
+      type: 'Targeted Savings',
+      color: Colors.accentAmber,
+      monthlyAmount: '3000',
+      icon: 'airplane-outline',
+    },
+    {
+      id: '4',
+      name: 'Index Fund SIP',
+      type: 'Passive Wealth',
+      color: Colors.primaryLight,
+      monthlyAmount: '3700',
+      icon: 'leaf-outline',
+    },
   ]);
   const [customGoalName, setCustomGoalName] = useState('');
   const [customGoalType, setCustomGoalType] = useState('');
@@ -113,6 +190,8 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
 
   // Focus the primary input whenever the step changes or an optional section opens
   useEffect(() => {
+    if (stage !== 'setup') return;
+
     const timer = setTimeout(() => {
       if (step === 1) {
         salaryInputRef.current?.focus();
@@ -123,17 +202,29 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
       } else if (step === 4 && hasInvestments) {
         firstInvestInputRef.current?.focus();
       }
-    }, 100);
+    }, 120);
 
     return () => clearTimeout(timer);
-  }, [step, hasDebt, hasInvestments]);
+  }, [stage, step, hasDebt, hasInvestments]);
+
+  // Handle start from welcome flow
+  const handleStartSetup = () => {
+    setStage('setup');
+    setStep(1);
+  };
+
+  const handleScrollToSlide = (index: number) => {
+    const cardWidth = Math.min(contentWidth - Spacing.xl * 2, 540);
+    welcomeScrollRef.current?.scrollTo({ x: index * cardWidth, animated: true });
+    setWelcomeIndex(index);
+  };
 
   const handleNext = () => {
     if (step === 1) {
       const parsedSalary = parseFloat(salary);
       if (isNaN(parsedSalary) || parsedSalary <= 0) {
         setErrorModal({
-          title: 'Invalid Salary',
+          title: 'Invalid salary',
           message: 'Please enter a valid monthly salary.',
         });
         return;
@@ -146,12 +237,12 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         const val = parseFloat(categoryBudgets[key]) || 0;
         return sum + val;
       }, 0);
-      
+
       const parsedSalary = parseFloat(salary);
       if (totalBudget > parsedSalary) {
         setErrorModal({
-          title: 'Budget Exceeded',
-          message: `Your total category budget (₹${totalBudget.toLocaleString()}) exceeds your monthly salary (₹${parsedSalary.toLocaleString()}). Please adjust.`,
+          title: 'Budget exceeded',
+          message: `Your total category budget (${formatCurrencyFull(totalBudget)}) exceeds your monthly salary (${formatCurrencyFull(parsedSalary)}). Please adjust.`,
         });
         return;
       }
@@ -163,8 +254,8 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         const interest = parseFloat(debtInterest) || 0;
         if (isNaN(total) || total <= 0 || isNaN(emi) || emi <= 0) {
           setErrorModal({
-            title: 'Invalid Debt Details',
-            message: 'Please enter valid loan and EMI amounts.',
+            title: 'Invalid loan details',
+            message: 'Please enter valid loan and monthly EMI amounts.',
           });
           return;
         }
@@ -177,7 +268,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         }
         if (interest < 0) {
           setErrorModal({
-            title: 'Invalid Interest Rate',
+            title: 'Invalid interest rate',
             message: 'Interest rate cannot be negative.',
           });
           return;
@@ -187,8 +278,8 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
           const monthlyInterest = total * monthlyRate;
           if (emi <= monthlyInterest) {
             setErrorModal({
-              title: 'EMI Too Low',
-              message: `With an interest rate of ${interest}%, your monthly interest alone is ₹${Math.round(monthlyInterest).toLocaleString()}, which equals or exceeds your EMI of ₹${emi.toLocaleString()}. Please increase your EMI.`,
+              title: 'EMI too low',
+              message: `With an interest rate of ${interest}%, monthly interest alone is ${formatCurrencyFull(Math.round(monthlyInterest))}, which equals or exceeds your EMI of ${formatCurrencyFull(emi)}. Please increase your EMI.`,
             });
             return;
           }
@@ -207,7 +298,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
   const handleSubmit = async () => {
     try {
       const parsedSalary = parseFloat(salary) || 0;
-      
+
       // Map categories
       const categories: Category[] = categoriesList
         .filter(c => enabledCategories[c.id])
@@ -242,17 +333,24 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
           color: g.color,
           monthlyAmount: mAmount,
           allocation,
-          isActive: false, // Remains inactive until debt is cleared
+          isActive: false, // Inactive until debt is cleared
           icon: g.icon,
         };
       });
 
       await updateSettings(parsedSalary, categories, debtSettings, investments);
-      onSuccess();
+
+      // Transition to completion screen with subtle entrance animation
+      setStage('completion');
+      Animated.timing(completionAnim, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start();
     } catch (error) {
       console.error('Error saving onboarding data:', error);
       setErrorModal({
-        title: 'Save Failed',
+        title: 'Save failed',
         message: 'Could not save configurations. Please try again.',
       });
     }
@@ -274,7 +372,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
 
   const handleUpdateGoalAmount = (id: string, text: string) => {
     const clean = text.replace(/[^0-9]/g, '');
-    setGoals(prev => prev.map(g => g.id === id ? { ...g, monthlyAmount: clean } : g));
+    setGoals(prev => prev.map(g => (g.id === id ? { ...g, monthlyAmount: clean } : g)));
   };
 
   const handleDeleteGoal = (id: string) => {
@@ -284,7 +382,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
   const handleAddPresetGoal = (preset: GoalPreset) => {
     if (goals.some(g => g.name.toLowerCase() === preset.name.toLowerCase())) {
       setErrorModal({
-        title: 'Goal Already Added',
+        title: 'Goal already added',
         message: `"${preset.name}" is already in your goals list.`,
       });
       return;
@@ -304,14 +402,14 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     const cleanName = customGoalName.trim();
     if (!cleanName) {
       setErrorModal({
-        title: 'Goal Name Required',
+        title: 'Goal name required',
         message: 'Please enter a name for your goal or investment.',
       });
       return;
     }
     if (goals.some(g => g.name.toLowerCase() === cleanName.toLowerCase())) {
       setErrorModal({
-        title: 'Duplicate Goal',
+        title: 'Duplicate goal',
         message: 'A goal with this name already exists.',
       });
       return;
@@ -319,7 +417,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     const newGoal: WizardGoal = {
       id: Date.now().toString(),
       name: cleanName,
-      type: customGoalType.trim() || 'Custom Goal',
+      type: customGoalType.trim() || 'Custom goal',
       color: GOAL_COLORS[goals.length % GOAL_COLORS.length],
       monthlyAmount: customGoalAmount.replace(/[^0-9]/g, '') || '5000',
       icon: 'flag-outline',
@@ -331,12 +429,246 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     setShowAddGoalForm(false);
   };
 
-  // Calculations for step indicators
   const totalBudget = Object.keys(categoryBudgets).reduce((sum, key) => {
     if (!enabledCategories[key]) return sum;
     return sum + (parseFloat(categoryBudgets[key]) || 0);
   }, 0);
 
+  const parsedSalaryNum = parseFloat(salary) || 0;
+  const debtTotalNum = parseFloat(debtTotal) || 0;
+  const debtEmiNum = parseFloat(debtEmi) || 0;
+  const debtInterestNum = parseFloat(debtInterest) || 0;
+  const debtSchedule = hasDebt
+    ? generateDebtSchedule(debtTotalNum, debtEmiNum, debtStartMonth, debtInterestNum)
+    : [];
+
+  const handleContainerLayout = (e: LayoutChangeEvent) => {
+    setContentWidth(e.nativeEvent.layout.width);
+  };
+
+  const cardWidth = Math.max(280, Math.min(contentWidth - Spacing.xl * 2, 540));
+
+  // ----------------------------------------------------
+  // SCREEN: WELCOME FLOW
+  // ----------------------------------------------------
+  if (stage === 'welcome') {
+    return (
+      <View style={styles.container} onLayout={handleContainerLayout}>
+        <ScrollView
+          contentContainerStyle={styles.welcomeScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={styles.welcomeHeader}>
+            <View style={styles.wordmarkRow}>
+              <Text style={styles.brandTitle}>Budget Buddy</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.skipButton}
+              onPress={handleStartSetup}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.skipButtonText}>Skip</Text>
+              <Ionicons name="arrow-forward" size={16} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Swipeable Cards Carousel */}
+          <View style={[styles.carouselWrapper, { width: cardWidth }]}>
+            <ScrollView
+              ref={welcomeScrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={e => {
+                const offsetX = e.nativeEvent.contentOffset.x;
+                const idx = Math.round(offsetX / cardWidth);
+                setWelcomeIndex(idx);
+              }}
+              onScroll={e => {
+                const offsetX = e.nativeEvent.contentOffset.x;
+                const idx = Math.round(offsetX / cardWidth);
+                if (idx !== welcomeIndex && idx >= 0 && idx < 3) {
+                  setWelcomeIndex(idx);
+                }
+              }}
+              scrollEventThrottle={16}
+            >
+              {WELCOME_SLIDES.map((slide, idx) => (
+                <View key={slide.id} style={[styles.welcomeCard, { width: cardWidth }]}>
+                  <View style={styles.heroIconCircle}>
+                    <Ionicons name={slide.icon} size={48} color={Colors.primary} />
+                  </View>
+                  <Text style={styles.welcomeCardTitle}>{slide.title}</Text>
+                  <Text style={styles.welcomeCardDescription}>{slide.description}</Text>
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* Page Dots */}
+            <View style={styles.pageDots}>
+              {[0, 1, 2].map(idx => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => handleScrollToSlide(idx)}
+                  style={[
+                    styles.pageDot,
+                    idx === welcomeIndex ? styles.pageDotActive : null,
+                  ]}
+                  accessibilityLabel={`Go to slide ${idx + 1}`}
+                />
+              ))}
+            </View>
+
+            {/* Carousel Action Button */}
+            {welcomeIndex < 2 ? (
+              <TouchableOpacity
+                style={styles.carouselNextBtn}
+                onPress={() => handleScrollToSlide(welcomeIndex + 1)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.carouselNextBtnText}>Next</Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.carouselGetStartedBtn}
+                onPress={handleStartSetup}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.carouselGetStartedBtnText}>Get Started</Text>
+                <Ionicons name="arrow-forward" size={18} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Trust and duration footer */}
+          <View style={styles.welcomeFooter}>
+            <View style={styles.trustLine}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={20}
+                color={Colors.primaryLight}
+              />
+              <Text style={styles.trustLineText}>
+                Your data stays on your device. No account needed.
+              </Text>
+            </View>
+            <Text style={styles.durationHint}>Takes about 2 minutes</Text>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ----------------------------------------------------
+  // SCREEN: COMPLETION SCREEN
+  // ----------------------------------------------------
+  if (stage === 'completion') {
+    const debtPayoffTarget =
+      hasDebt && debtSchedule.length > 0
+        ? `${debtSchedule[debtSchedule.length - 1].month} (${debtSchedule.length} months)`
+        : 'Debt-free';
+
+    const activeGoalsCount = hasInvestments ? goals.length : 0;
+
+    return (
+      <View style={styles.container} onLayout={handleContainerLayout}>
+        <ScrollView
+          contentContainerStyle={styles.completionScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            style={[
+              styles.completionCard,
+              {
+                opacity: completionAnim,
+                transform: [
+                  {
+                    scale: completionAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.94, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {/* Success icon */}
+            <View style={styles.successIconCircle}>
+              <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
+            </View>
+
+            <Text style={styles.completionTitle}>You're all set!</Text>
+            <Text style={styles.completionDescription}>
+              Your budget plan is configured and stored safely on your device.
+            </Text>
+
+            {/* Summary card */}
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryLabelGroup}>
+                  <Ionicons name="cash-outline" size={20} color={Colors.primaryLight} />
+                  <Text style={styles.summaryLabel}>Monthly income</Text>
+                </View>
+                <Text style={styles.summaryValue}>
+                  {formatCurrencyFull(parsedSalaryNum)}
+                </Text>
+              </View>
+
+              <View style={styles.summaryDivider} />
+
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryLabelGroup}>
+                  <Ionicons name="pie-chart-outline" size={20} color={Colors.primaryLight} />
+                  <Text style={styles.summaryLabel}>Total budget allocated</Text>
+                </View>
+                <Text style={styles.summaryValue}>
+                  {formatCurrencyFull(totalBudget)}
+                </Text>
+              </View>
+
+              <View style={styles.summaryDivider} />
+
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryLabelGroup}>
+                  <Ionicons name="trending-down-outline" size={20} color={Colors.accentAmber} />
+                  <Text style={styles.summaryLabel}>Debt payoff</Text>
+                </View>
+                <Text style={styles.summaryValue}>{debtPayoffTarget}</Text>
+              </View>
+
+              <View style={styles.summaryDivider} />
+
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryLabelGroup}>
+                  <Ionicons name="flag-outline" size={20} color={Colors.accentGreen} />
+                  <Text style={styles.summaryLabel}>Savings goals</Text>
+                </View>
+                <Text style={styles.summaryValue}>
+                  {activeGoalsCount > 0 ? `${activeGoalsCount} active goals` : 'Not configured'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Go to Dashboard CTA */}
+            <TouchableOpacity
+              style={styles.completionButton}
+              onPress={onSuccess}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.completionButtonText}>Go to Dashboard</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ----------------------------------------------------
+  // SCREEN: SETUP STEPS (1 TO 4)
+  // ----------------------------------------------------
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -347,11 +679,11 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Title */}
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Budget Buddy</Text>
-          <Text style={styles.headerSubtitle}>Personal Finance Onboarding</Text>
-          
+          <Text style={styles.headerSubtitle}>Step {step} of 4</Text>
+
           {/* Progress Indicators */}
           <View style={styles.indicators}>
             {[1, 2, 3, 4].map(i => (
@@ -367,17 +699,17 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
           </View>
         </View>
 
-        {/* Step 1: Salary */}
+        {/* Step 1: Monthly Income */}
         {step === 1 && (
           <View style={styles.stepContainer}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="card" size={32} color={Colors.primary} />
+            <View style={styles.heroIconCircle}>
+              <Ionicons name="cash-outline" size={48} color={Colors.primaryLight} />
             </View>
-            <Text style={styles.stepTitle}>Enter Monthly Income</Text>
+            <Text style={styles.stepTitle}>What's your monthly income?</Text>
             <Text style={styles.stepDescription}>
-              Input your monthly net salary or standard income to structure your monthly budgets.
+              Your take-home pay is the starting point for a realistic budget.
             </Text>
-            
+
             <View style={styles.inputWrapper}>
               <Text style={styles.currencySymbol}>₹</Text>
               <TextInput
@@ -394,24 +726,42 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                 selectionColor={Colors.primary}
               />
             </View>
+
+            {/* Info Tip Card */}
+            <View style={styles.tipCard}>
+              <Ionicons name="bulb-outline" size={20} color={Colors.accent} />
+              <Text style={styles.tipText}>
+                Use your usual net salary. You can change it any time in Settings.
+              </Text>
+            </View>
           </View>
         )}
 
-        {/* Step 2: Categories Setup */}
+        {/* Step 2: Spending Categories */}
         {step === 2 && (
           <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Configure Category Budgets</Text>
+            <View style={styles.heroIconCircle}>
+              <Ionicons name="pie-chart-outline" size={48} color={Colors.primaryLight} />
+            </View>
+            <Text style={styles.stepTitle}>Plan your spending</Text>
             <Text style={styles.stepDescription}>
-              Set limits for your primary spending categories. Unchecked categories will be disabled.
+              Set a monthly limit for each category. Turn off the ones you don't need.
             </Text>
 
             <View style={styles.budgetOverview}>
-              <Text style={styles.overviewLabel}>Salary: ₹{parseFloat(salary).toLocaleString()}</Text>
-              <Text style={[
-                styles.overviewBudget,
-                totalBudget > parseFloat(salary) ? { color: Colors.accentRed } : { color: Colors.accentGreen }
-              ]}>
-                Allocated: ₹{totalBudget.toLocaleString()} ({Math.round((totalBudget / parseFloat(salary)) * 100)}%)
+              <Text style={styles.overviewLabel}>
+                Salary: {formatCurrencyFull(parseFloat(salary) || 0)}
+              </Text>
+              <Text
+                style={[
+                  styles.overviewBudget,
+                  totalBudget > parseFloat(salary)
+                    ? { color: Colors.accentRed }
+                    : { color: Colors.accentGreen },
+                ]}
+              >
+                Allocated: {formatCurrencyFull(totalBudget)} (
+                {Math.round((totalBudget / (parseFloat(salary) || 1)) * 100)}%)
               </Text>
             </View>
 
@@ -419,19 +769,33 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
               {categoriesList.map((cat, index) => {
                 const isEnabled = enabledCategories[cat.id];
                 return (
-                  <View key={cat.id} style={[styles.categoryRow, !isEnabled && styles.categoryRowDisabled]}>
+                  <View
+                    key={cat.id}
+                    style={[styles.categoryRow, !isEnabled && styles.categoryRowDisabled]}
+                  >
                     <TouchableOpacity
                       onPress={() => toggleCategory(cat.id)}
                       style={styles.categoryToggle}
                     >
-                      <View style={[styles.checkbox, isEnabled && styles.checkboxChecked, { borderColor: cat.color }]}>
+                      <View
+                        style={[
+                          styles.checkbox,
+                          isEnabled && styles.checkboxChecked,
+                          { borderColor: cat.color },
+                        ]}
+                      >
                         {isEnabled && <Ionicons name="checkmark" size={14} color="#fff" />}
                       </View>
-                      <Text style={[styles.categoryName, { color: isEnabled ? Colors.textPrimary : Colors.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.categoryName,
+                          { color: isEnabled ? Colors.textPrimary : Colors.textSecondary },
+                        ]}
+                      >
                         {cat.name}
                       </Text>
                     </TouchableOpacity>
-                    
+
                     {isEnabled ? (
                       <View style={styles.budgetInputWrap}>
                         <Text style={styles.budgetInputSymbol}>₹</Text>
@@ -453,18 +817,26 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                 );
               })}
             </View>
+
+            {/* Info Tip Card */}
+            <View style={styles.tipCard}>
+              <Ionicons name="bulb-outline" size={20} color={Colors.accent} />
+              <Text style={styles.tipText}>
+                A common starting rule is 50% needs, 30% wants, 20% savings and debt.
+              </Text>
+            </View>
           </View>
         )}
 
-        {/* Step 3: Debt Settings */}
+        {/* Step 3: Debt Paydown */}
         {step === 3 && (
           <View style={styles.stepContainer}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="trending-down" size={32} color={Colors.accentAmber} />
+            <View style={styles.heroIconCircle}>
+              <Ionicons name="trending-down-outline" size={48} color={Colors.accentAmber} />
             </View>
-            <Text style={styles.stepTitle}>Debt Payoff Tracker</Text>
+            <Text style={styles.stepTitle}>Any debt to tackle?</Text>
             <Text style={styles.stepDescription}>
-              Do you have a loan or active debt you want to track and pay down monthly?
+              Add a loan or EMI to track your payoff journey.
             </Text>
 
             <View style={styles.toggleContainer}>
@@ -472,13 +844,17 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                 style={[styles.toggleButton, !hasDebt && styles.toggleButtonActive]}
                 onPress={() => setHasDebt(false)}
               >
-                <Text style={[styles.toggleButtonText, !hasDebt && styles.toggleButtonTextActive]}>No Debt</Text>
+                <Text style={[styles.toggleButtonText, !hasDebt && styles.toggleButtonTextActive]}>
+                  Not now
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.toggleButton, hasDebt && styles.toggleButtonActive]}
                 onPress={() => setHasDebt(true)}
               >
-                <Text style={[styles.toggleButtonText, hasDebt && styles.toggleButtonTextActive]}>Has Debt</Text>
+                <Text style={[styles.toggleButtonText, hasDebt && styles.toggleButtonTextActive]}>
+                  Yes, track debt
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -539,21 +915,25 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                   </View>
                 </View>
 
-                {/* Halal / Shariah-compliant badge or conventional notice */}
-                {(!debtInterest || debtInterest === '0' || parseFloat(debtInterest) === 0) ? (
-                  <View style={styles.halalBadge}>
-                    <Ionicons name="leaf" size={18} color={Colors.accentGreen} />
+                {/* Neutral Interest Phrasing */}
+                {!debtInterest || debtInterest === '0' || parseFloat(debtInterest) === 0 ? (
+                  <View style={styles.neutralBadge}>
+                    <Ionicons name="leaf-outline" size={20} color={Colors.accentGreen} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.halalBadgeTitle}>0% Interest • Shariah Compliant</Text>
-                      <Text style={styles.halalBadgeSubtitle}>Qard Hasan (interest-free loan). 100% Halal debt.</Text>
+                      <Text style={styles.neutralBadgeTitle}>0% Interest • Interest-free loan</Text>
+                      <Text style={styles.neutralBadgeSubtitle}>
+                        No interest charges or accrual on this balance.
+                      </Text>
                     </View>
                   </View>
                 ) : (
-                  <View style={styles.conventionalBadge}>
-                    <Ionicons name="alert-circle-outline" size={18} color={Colors.accentAmber} />
+                  <View style={styles.interestBadge}>
+                    <Ionicons name="warning-outline" size={20} color={Colors.accentAmber} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.conventionalBadgeTitle}>{debtInterest}% Annual Interest</Text>
-                      <Text style={styles.conventionalBadgeSubtitle}>Conventional loan with interest accrual.</Text>
+                      <Text style={styles.interestBadgeTitle}>{debtInterest}% Annual Interest</Text>
+                      <Text style={styles.interestBadgeSubtitle}>
+                        Standard loan with monthly interest accrual.
+                      </Text>
                     </View>
                   </View>
                 )}
@@ -565,11 +945,26 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                     onPress={() => setShowDatePicker(true)}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="calendar-outline" size={20} color={Colors.primaryLight} style={{ marginRight: Spacing.sm }} />
-                    <Text style={[styles.datePickerText, !debtStartMonth && { color: Colors.textMuted }]}>
-                      {debtStartMonth || "Select EMI date"}
+                    <Ionicons
+                      name="calendar-outline"
+                      size={20}
+                      color={Colors.primaryLight}
+                      style={{ marginRight: Spacing.sm }}
+                    />
+                    <Text
+                      style={[
+                        styles.datePickerText,
+                        !debtStartMonth && { color: Colors.textMuted },
+                      ]}
+                    >
+                      {debtStartMonth || 'Select EMI date'}
                     </Text>
-                    <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} style={{ marginLeft: 'auto' }} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Colors.textSecondary}
+                      style={{ marginLeft: 'auto' }}
+                    />
                   </TouchableOpacity>
 
                   {/* Reminder Check Option */}
@@ -578,15 +973,18 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                     onPress={handleToggleReminder}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.checkboxBox, debtReminderEnabled && styles.checkboxBoxChecked]}>
+                    <View
+                      style={[
+                        styles.checkboxBox,
+                        debtReminderEnabled && styles.checkboxBoxChecked,
+                      ]}
+                    >
                       {debtReminderEnabled && (
                         <Ionicons name="checkmark" size={14} color="#fff" />
                       )}
                     </View>
                     <View style={styles.reminderCheckContent}>
-                      <Text style={styles.reminderCheckLabel}>
-                        Send reminder notification
-                      </Text>
+                      <Text style={styles.reminderCheckLabel}>Send reminder notification</Text>
                       {debtReminderEnabled ? (
                         <Text style={styles.reminderCheckHint}>
                           Notification will be sent on the {getOrdinal(debtEmiDay)} of every month
@@ -602,7 +1000,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
 
                 {parseFloat(debtTotal) > 0 && parseFloat(debtEmi) > 0 && (
                   <View style={styles.tenureNote}>
-                    <Ionicons name="information-circle" size={16} color={Colors.accent} />
+                    <Ionicons name="information-circle-outline" size={18} color={Colors.accent} />
                     <Text style={styles.tenureNoteText}>
                       {(() => {
                         const total = parseFloat(debtTotal);
@@ -610,33 +1008,41 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                         const rate = parseFloat(debtInterest) || 0;
                         if (rate === 0) {
                           const tenure = Math.ceil(total / emi);
-                          return `Estimated Tenure: ${tenure} months (Interest-Free)`;
+                          return `Estimated tenure: ${tenure} months (Interest-Free)`;
                         }
                         const r = rate / 12 / 100;
                         if (emi <= total * r) {
-                          return `Warning: Monthly interest (₹${Math.round(total * r).toLocaleString()}) exceeds EMI`;
+                          return `Warning: Monthly interest (${formatCurrencyFull(Math.round(total * r))}) exceeds EMI`;
                         }
                         const n = Math.ceil(-Math.log(1 - (r * total) / emi) / Math.log(1 + r));
                         const totalInterestPaid = Math.max(0, Math.round(n * emi - total));
-                        return `Estimated Tenure: ${n} months • Total Interest: ₹${totalInterestPaid.toLocaleString()}`;
+                        return `Estimated tenure: ${n} months • Total interest: ${formatCurrencyFull(totalInterestPaid)}`;
                       })()}
                     </Text>
                   </View>
                 )}
               </View>
             )}
+
+            {/* Info Tip Card */}
+            <View style={styles.tipCard}>
+              <Ionicons name="bulb-outline" size={20} color={Colors.accent} />
+              <Text style={styles.tipText}>
+                Skip this if you're debt-free. You can add a loan later in Settings.
+              </Text>
+            </View>
           </View>
         )}
 
-        {/* Step 4: Investments & Goals Setup */}
+        {/* Step 4: Savings & Goals */}
         {step === 4 && (
           <View style={styles.stepContainer}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="sparkles" size={30} color={Colors.primaryLight} />
+            <View style={styles.heroIconCircle}>
+              <Ionicons name="flag-outline" size={48} color={Colors.primaryLight} />
             </View>
-            <Text style={styles.stepTitle}>Investment & Savings Goals</Text>
+            <Text style={styles.stepTitle}>What are you saving for?</Text>
             <Text style={styles.stepDescription}>
-              Customize your monthly SIPs, mutual funds, or personal financial goals (e.g. Retirement, Emergency Fund, Umrah).
+              Add goals like an emergency fund, travel or retirement, and watch them grow.
             </Text>
 
             <View style={styles.toggleContainer}>
@@ -644,13 +1050,27 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                 style={[styles.toggleButton, !hasInvestments && styles.toggleButtonActive]}
                 onPress={() => setHasInvestments(false)}
               >
-                <Text style={[styles.toggleButtonText, !hasInvestments && styles.toggleButtonTextActive]}>Skip Goals</Text>
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    !hasInvestments && styles.toggleButtonTextActive,
+                  ]}
+                >
+                  Not now
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.toggleButton, hasInvestments && styles.toggleButtonActive]}
                 onPress={() => setHasInvestments(true)}
               >
-                <Text style={[styles.toggleButtonText, hasInvestments && styles.toggleButtonTextActive]}>Set Goals Plan</Text>
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    hasInvestments && styles.toggleButtonTextActive,
+                  ]}
+                >
+                  Yes, set goals
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -658,19 +1078,25 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
               <View style={styles.investList}>
                 {hasDebt && (
                   <View style={styles.investLockNotice}>
-                    <Ionicons name="lock-closed" size={16} color={Colors.accentAmber} />
+                    <Ionicons name="lock-closed-outline" size={18} color={Colors.accentAmber} />
                     <Text style={styles.investLockNoticeText}>
-                      Note: Since you have configured active debt, these investments will remain locked until your debt is cleared.
+                      Note: Since you configured an active loan, contributions unlock as your debt clears.
                     </Text>
                   </View>
                 )}
 
                 {/* Popular Presets Bar */}
                 <View style={styles.presetSection}>
-                  <Text style={styles.presetSectionTitle}>Quick Add Suggestions:</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
+                  <Text style={styles.presetSectionTitle}>Quick add suggestions:</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.presetScroll}
+                  >
                     {POPULAR_GOAL_PRESETS.map(preset => {
-                      const isAdded = goals.some(g => g.name.toLowerCase() === preset.name.toLowerCase());
+                      const isAdded = goals.some(
+                        g => g.name.toLowerCase() === preset.name.toLowerCase()
+                      );
                       return (
                         <TouchableOpacity
                           key={preset.name}
@@ -679,11 +1105,16 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                           disabled={isAdded}
                         >
                           <Ionicons
-                            name={isAdded ? "checkmark-circle" : (preset.icon as any)}
+                            name={isAdded ? 'checkmark-circle' : (preset.icon as any)}
                             size={14}
                             color={isAdded ? Colors.accentGreen : preset.color}
                           />
-                          <Text style={[styles.presetChipText, isAdded && styles.presetChipTextAdded]}>
+                          <Text
+                            style={[
+                              styles.presetChipText,
+                              isAdded && styles.presetChipTextAdded,
+                            ]}
+                          >
                             {preset.name}
                           </Text>
                         </TouchableOpacity>
@@ -695,7 +1126,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                 {/* Goals List */}
                 {goals.length === 0 ? (
                   <View style={styles.emptyGoalsCard}>
-                    <Ionicons name="flag-outline" size={32} color={Colors.textMuted} />
+                    <Ionicons name="flag-outline" size={48} color={Colors.textMuted} />
                     <Text style={styles.emptyGoalsText}>
                       No goals added yet. Tap any suggestion above or add a custom goal below.
                     </Text>
@@ -703,12 +1134,25 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                 ) : (
                   goals.map((goal, index) => (
                     <View key={goal.id} style={styles.investRow}>
-                      <View style={[styles.goalIconWrap, { backgroundColor: goal.color + '20' }]}>
-                        <Ionicons name={(goal.icon as any) || 'flag'} size={18} color={goal.color} />
+                      <View
+                        style={[
+                          styles.goalIconWrap,
+                          { backgroundColor: goal.color + '20' },
+                        ]}
+                      >
+                        <Ionicons
+                          name={(goal.icon as any) || 'flag-outline'}
+                          size={18}
+                          color={goal.color}
+                        />
                       </View>
                       <View style={styles.goalInfoWrap}>
-                        <Text style={styles.investName} numberOfLines={1}>{goal.name}</Text>
-                        <Text style={styles.investType} numberOfLines={1}>{goal.type}</Text>
+                        <Text style={styles.investName} numberOfLines={1}>
+                          {goal.name}
+                        </Text>
+                        <Text style={styles.investType} numberOfLines={1}>
+                          {goal.type}
+                        </Text>
                       </View>
                       <View style={styles.goalRightWrap}>
                         <View style={styles.investInputWrap}>
@@ -729,7 +1173,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                           onPress={() => handleDeleteGoal(goal.id)}
                           accessibilityLabel={`Delete ${goal.name}`}
                         >
-                          <Ionicons name="trash-outline" size={17} color={Colors.accentRed} />
+                          <Ionicons name="trash-outline" size={18} color={Colors.accentRed} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -743,19 +1187,19 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                     onPress={() => setShowAddGoalForm(true)}
                   >
                     <Ionicons name="add-circle-outline" size={18} color={Colors.primaryLight} />
-                    <Text style={styles.openAddGoalBtnText}>Add Your Own Custom Goal</Text>
+                    <Text style={styles.openAddGoalBtnText}>Add your own custom goal</Text>
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.addGoalCard}>
                     <View style={styles.addGoalHeader}>
-                      <Text style={styles.addGoalCardTitle}>Create Custom Goal</Text>
+                      <Text style={styles.addGoalCardTitle}>Create custom goal</Text>
                       <TouchableOpacity onPress={() => setShowAddGoalForm(false)}>
                         <Ionicons name="close" size={18} color={Colors.textSecondary} />
                       </TouchableOpacity>
                     </View>
                     <TextInput
                       style={styles.addGoalInput}
-                      placeholder="Goal Name (e.g. Wedding, Dream Car, Tech Setup)"
+                      placeholder="Goal name (e.g. Wedding, Tech Setup, Travel)"
                       placeholderTextColor={Colors.textMuted}
                       value={customGoalName}
                       onChangeText={setCustomGoalName}
@@ -791,12 +1235,20 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
                       onPress={handleAddCustomGoal}
                     >
                       <Ionicons name="add" size={18} color="#fff" />
-                      <Text style={styles.addGoalConfirmBtnText}>Add Goal</Text>
+                      <Text style={styles.addGoalConfirmBtnText}>Add goal</Text>
                     </TouchableOpacity>
                   </View>
                 )}
               </View>
             )}
+
+            {/* Info Tip Card */}
+            <View style={styles.tipCard}>
+              <Ionicons name="bulb-outline" size={20} color={Colors.accent} />
+              <Text style={styles.tipText}>
+                Small, regular contributions add up. Even a modest monthly amount matters.
+              </Text>
+            </View>
           </View>
         )}
 
@@ -861,6 +1313,152 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.huge + Spacing.md,
     paddingBottom: Spacing.xxxl,
   },
+
+  // Welcome flow styles
+  welcomeScrollContent: {
+    padding: Spacing.xl,
+    paddingTop: Spacing.huge,
+    paddingBottom: Spacing.xxxl,
+    alignItems: 'center',
+    flexGrow: 1,
+    justifyContent: 'space-between',
+  },
+  welcomeHeader: {
+    width: '100%',
+    maxWidth: 540,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xxl,
+  },
+  wordmarkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandTitle: {
+    ...Typography.hero,
+    color: Colors.textPrimary,
+  },
+  skipButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  skipButtonText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  carouselWrapper: {
+    alignItems: 'center',
+    marginBottom: Spacing.xxl,
+  },
+  welcomeCard: {
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.xxl,
+    padding: Spacing.xxl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.elevated,
+  },
+  heroIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primary + '18',
+    borderWidth: 1,
+    borderColor: Colors.primary + '35',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xl,
+  },
+  welcomeCardTitle: {
+    ...Typography.title,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  welcomeCardDescription: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    maxWidth: 380,
+  },
+  pageDots: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  pageDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.surfaceHighlight,
+  },
+  pageDotActive: {
+    width: 24,
+    backgroundColor: Colors.primaryLight,
+  },
+  carouselNextBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.subtle,
+  },
+  carouselNextBtnText: {
+    ...Typography.bodyBold,
+    color: '#fff',
+  },
+  carouselGetStartedBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.accentGreen,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.elevated,
+  },
+  carouselGetStartedBtnText: {
+    ...Typography.bodyBold,
+    color: '#fff',
+  },
+  welcomeFooter: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    maxWidth: 540,
+    width: '100%',
+  },
+  trustLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  trustLineText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  durationHint: {
+    ...Typography.small,
+    color: Colors.textMuted,
+  },
+
+  // Setup Step Styles
   header: {
     alignItems: 'center',
     marginBottom: Spacing.xxxl,
@@ -905,15 +1503,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.surfaceHighlight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-  },
   stepTitle: {
     ...Typography.title,
     color: Colors.textPrimary,
@@ -927,6 +1516,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: Spacing.xxl,
   },
+
+  // Input styles
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -938,19 +1529,40 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.lg,
   },
   currencySymbol: {
-    fontSize: 28,
-    fontWeight: '700',
+    ...Typography.title,
     color: Colors.primaryLight,
     marginRight: Spacing.sm,
+    ...TabularNums,
   },
   input: {
-    fontSize: 28,
-    fontWeight: '700',
+    ...Typography.number,
     color: Colors.textPrimary,
-    width: 150,
+    minWidth: 140,
     textAlign: 'left',
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
+
+  // Info tip card
+  tipCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.accent + '15',
+    borderWidth: 1,
+    borderColor: Colors.accent + '35',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    width: '100%',
+    marginTop: Spacing.xxl,
+  },
+  tipText: {
+    ...Typography.caption,
+    color: Colors.accent,
+    flex: 1,
+    lineHeight: 18,
+  },
+
+  // Budget Overview in Step 2
   budgetOverview: {
     width: '100%',
     padding: Spacing.md,
@@ -959,14 +1571,17 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   overviewLabel: {
     ...Typography.caption,
     color: Colors.textSecondary,
+    ...TabularNums,
   },
   overviewBudget: {
     ...Typography.caption,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
   },
   categoryList: {
     width: '100%',
@@ -1009,7 +1624,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceHighlight,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.sm,
-    width: 100,
+    width: 110,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -1020,6 +1635,7 @@ const styles = StyleSheet.create({
   },
   budgetInput: {
     ...Typography.body,
+    ...TabularNums,
     color: Colors.textPrimary,
     flex: 1,
     paddingVertical: 6,
@@ -1029,6 +1645,8 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textMuted,
   },
+
+  // Toggle buttons
   toggleContainer: {
     flexDirection: 'row',
     width: '100%',
@@ -1054,6 +1672,8 @@ const styles = StyleSheet.create({
   toggleButtonTextActive: {
     color: Colors.textPrimary,
   },
+
+  // Debt form
   debtForm: {
     width: '100%',
     gap: Spacing.lg,
@@ -1082,10 +1702,51 @@ const styles = StyleSheet.create({
   },
   formInput: {
     ...Typography.body,
+    ...TabularNums,
     color: Colors.textPrimary,
     flex: 1,
     paddingVertical: Spacing.md,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
+  },
+  neutralBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.accentGreen + '15',
+    borderWidth: 1,
+    borderColor: Colors.accentGreen + '35',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  neutralBadgeTitle: {
+    ...Typography.bodyBold,
+    color: Colors.accentGreen,
+  },
+  neutralBadgeSubtitle: {
+    ...Typography.small,
+    color: Colors.accentGreen,
+    opacity: 0.85,
+    marginTop: 2,
+  },
+  interestBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.accentAmber + '15',
+    borderWidth: 1,
+    borderColor: Colors.accentAmber + '35',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  interestBadgeTitle: {
+    ...Typography.bodyBold,
+    color: Colors.accentAmber,
+  },
+  interestBadgeSubtitle: {
+    ...Typography.small,
+    color: Colors.accentAmber,
+    opacity: 0.85,
+    marginTop: 2,
   },
   datePickerWrap: {
     flexDirection: 'row',
@@ -1098,9 +1759,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   datePickerText: {
-    ...Typography.body,
+    ...Typography.bodyBold,
     color: Colors.textPrimary,
-    fontWeight: '600',
   },
   reminderCheckOption: {
     flexDirection: 'row',
@@ -1127,10 +1787,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reminderCheckLabel: {
-    ...Typography.body,
-    fontSize: 14,
+    ...Typography.bodyBold,
     color: Colors.textPrimary,
-    fontWeight: '600',
   },
   reminderCheckHint: {
     ...Typography.small,
@@ -1154,50 +1812,11 @@ const styles = StyleSheet.create({
   tenureNoteText: {
     ...Typography.caption,
     color: Colors.accent,
-    fontWeight: '600',
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
   },
-  halalBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Colors.accentGreen + '15',
-    borderWidth: 1,
-    borderColor: Colors.accentGreen + '35',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-  },
-  halalBadgeTitle: {
-    ...Typography.bodyBold,
-    color: Colors.accentGreen,
-    fontSize: 13,
-  },
-  halalBadgeSubtitle: {
-    ...Typography.small,
-    color: Colors.accentGreen,
-    opacity: 0.85,
-    marginTop: 2,
-  },
-  conventionalBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Colors.accentAmber + '15',
-    borderWidth: 1,
-    borderColor: Colors.accentAmber + '35',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-  },
-  conventionalBadgeTitle: {
-    ...Typography.bodyBold,
-    color: Colors.accentAmber,
-    fontSize: 13,
-  },
-  conventionalBadgeSubtitle: {
-    ...Typography.small,
-    color: Colors.accentAmber,
-    opacity: 0.85,
-    marginTop: 2,
-  },
+
+  // Goals & Investments Form
   investList: {
     width: '100%',
     gap: Spacing.md,
@@ -1217,7 +1836,7 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.accentAmber,
     flex: 1,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   investRow: {
     flexDirection: 'row',
@@ -1228,9 +1847,9 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   goalIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1244,12 +1863,11 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   deleteGoalBtn: {
-    padding: 6,
+    padding: Spacing.sm,
   },
   investName: {
     ...Typography.bodyBold,
     color: Colors.textPrimary,
-    fontSize: 14,
   },
   investType: {
     ...Typography.small,
@@ -1262,7 +1880,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceHighlight,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.sm,
-    width: 95,
+    width: 100,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -1273,6 +1891,7 @@ const styles = StyleSheet.create({
   },
   investInput: {
     ...Typography.body,
+    ...TabularNums,
     color: Colors.textPrimary,
     flex: 1,
     paddingVertical: 6,
@@ -1309,7 +1928,7 @@ const styles = StyleSheet.create({
   presetChipText: {
     ...Typography.small,
     color: Colors.textPrimary,
-    fontWeight: '600',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   presetChipTextAdded: {
     color: Colors.textMuted,
@@ -1322,7 +1941,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
   emptyGoalsText: {
     ...Typography.caption,
@@ -1345,7 +1964,6 @@ const styles = StyleSheet.create({
   openAddGoalBtnText: {
     ...Typography.bodyBold,
     color: Colors.primaryLight,
-    fontSize: 14,
   },
   addGoalCard: {
     backgroundColor: Colors.surfaceElevated,
@@ -1365,7 +1983,6 @@ const styles = StyleSheet.create({
   addGoalCardTitle: {
     ...Typography.bodyBold,
     color: Colors.textPrimary,
-    fontSize: 14,
   },
   addGoalInput: {
     ...Typography.body,
@@ -1396,8 +2013,9 @@ const styles = StyleSheet.create({
   addGoalConfirmBtnText: {
     ...Typography.bodyBold,
     color: '#fff',
-    fontSize: 14,
   },
+
+  // Actions row
   actions: {
     flexDirection: 'row',
     gap: Spacing.md,
@@ -1446,6 +2064,100 @@ const styles = StyleSheet.create({
     ...Shadows.subtle,
   },
   submitButtonText: {
+    ...Typography.bodyBold,
+    color: '#fff',
+  },
+
+  // Completion Screen Styles
+  completionScrollContent: {
+    padding: Spacing.xl,
+    paddingTop: Spacing.huge,
+    paddingBottom: Spacing.xxxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexGrow: 1,
+  },
+  completionCard: {
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.xxl,
+    padding: Spacing.xxl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    maxWidth: 540,
+    width: '100%',
+    ...Shadows.elevated,
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.success + '18',
+    borderWidth: 1,
+    borderColor: Colors.success + '35',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xl,
+  },
+  completionTitle: {
+    ...Typography.title,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
+  },
+  completionDescription: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: Spacing.xxl,
+  },
+  summaryCard: {
+    width: '100%',
+    backgroundColor: Colors.surfaceHighlight,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.xxl,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+  },
+  summaryLabelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  summaryLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  summaryValue: {
+    ...Typography.bodyBold,
+    color: Colors.textPrimary,
+    ...TabularNums,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: Spacing.xs,
+  },
+  completionButton: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.card,
+  },
+  completionButtonText: {
     ...Typography.bodyBold,
     color: '#fff',
   },

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { Colors, Spacing, BorderRadius, Typography, getStatusColor } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, TabularNums, getStatusColor } from '../theme';
 
 interface ProgressBarProps {
   label: string;
@@ -77,7 +77,8 @@ const styles = StyleSheet.create({
   },
   percentage: {
     ...Typography.caption,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
   },
   track: {
     height: 8,
@@ -97,8 +98,10 @@ const styles = StyleSheet.create({
   amount: {
     ...Typography.small,
     color: Colors.textSecondary,
+    ...TabularNums,
   },
   remaining: {
     ...Typography.small,
+    ...TabularNums,
   },
 });

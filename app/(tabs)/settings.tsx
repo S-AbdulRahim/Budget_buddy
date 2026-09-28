@@ -6,14 +6,13 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums } from '../../src/theme';
 import { loadData, updateSettings, resetData } from '../../src/data/storage';
 import { AppData, Category, Investment } from '../../src/types';
 import ConfirmModal from '../../src/components/ConfirmModal';
@@ -29,6 +28,7 @@ export default function SettingsScreen() {
   // Modal states
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string; onOk?: () => void } | null>(null);
 
   // Form states
   const [salary, setSalary] = useState('');
@@ -107,17 +107,20 @@ export default function SettingsScreen() {
 
     const parsedSalary = parseFloat(salary);
     if (isNaN(parsedSalary) || parsedSalary <= 0) {
-      Alert.alert('Invalid Salary', 'Please enter a valid monthly salary.');
+      setAlertModal({
+        title: 'Invalid salary',
+        message: 'Please enter a valid monthly salary.',
+      });
       return;
     }
 
     // Validate Categories Budgets
     const totalBudget = categories.reduce((sum, cat) => sum + cat.budget, 0);
     if (totalBudget > parsedSalary) {
-      Alert.alert(
-        'Budget Exceeded',
-        `Your total category budgets (₹${totalBudget.toLocaleString()}) exceed your monthly income (₹${parsedSalary.toLocaleString()}).`
-      );
+      setAlertModal({
+        title: 'Budget exceeded',
+        message: `Your total category budgets (₹${totalBudget.toLocaleString()}) exceed your monthly income (₹${parsedSalary.toLocaleString()}).`,
+      });
       return;
     }
 
@@ -142,25 +145,34 @@ export default function SettingsScreen() {
       const emi = parseFloat(debtEmi);
       const interest = parseFloat(debtInterest) || 0;
       if (isNaN(total) || total <= 0 || isNaN(emi) || emi <= 0) {
-        Alert.alert('Invalid Debt Details', 'Please enter valid loan and EMI amounts.');
+        setAlertModal({
+          title: 'Invalid loan details',
+          message: 'Please enter valid loan and EMI amounts.',
+        });
         return;
       }
       if (emi > total) {
-        Alert.alert('Invalid EMI', 'Monthly EMI cannot exceed total debt.');
+        setAlertModal({
+          title: 'Invalid EMI',
+          message: 'Monthly EMI cannot exceed total debt.',
+        });
         return;
       }
       if (interest < 0) {
-        Alert.alert('Invalid Interest Rate', 'Interest rate cannot be negative.');
+        setAlertModal({
+          title: 'Invalid interest rate',
+          message: 'Interest rate cannot be negative.',
+        });
         return;
       }
       if (interest > 0) {
         const monthlyRate = interest / 12 / 100;
         const monthlyInterest = total * monthlyRate;
         if (emi <= monthlyInterest) {
-          Alert.alert(
-            'EMI Too Low',
-            `With an interest rate of ${interest}%, your monthly interest alone is ₹${Math.round(monthlyInterest).toLocaleString()}, which equals or exceeds your EMI of ₹${emi.toLocaleString()}. Please increase your EMI.`
-          );
+          setAlertModal({
+            title: 'EMI too low',
+            message: `With an interest rate of ${interest}%, your monthly interest alone is ₹${Math.round(monthlyInterest).toLocaleString()}, which equals or exceeds your EMI of ₹${emi.toLocaleString()}. Please increase your EMI.`,
+          });
           return;
         }
       }
@@ -190,11 +202,17 @@ export default function SettingsScreen() {
 
     try {
       await updateSettings(parsedSalary, categories, debtSettings, finalInvestments);
-      Alert.alert('Settings Saved', 'Your configurations have been updated successfully.');
-      router.replace('/(tabs)');
+      setAlertModal({
+        title: 'Settings saved',
+        message: 'Your configurations have been updated successfully.',
+        onOk: () => router.replace('/(tabs)'),
+      });
     } catch (error) {
       console.error('Error updating settings:', error);
-      Alert.alert('Save Failed', 'An error occurred while saving your settings.');
+      setAlertModal({
+        title: 'Save failed',
+        message: 'An error occurred while saving your settings.',
+      });
     }
   };
 
@@ -231,12 +249,18 @@ export default function SettingsScreen() {
     const budgetVal = parseFloat(newCatBudget) || 0;
 
     if (!cleanName) {
-      Alert.alert('Missing Name', 'Please enter a category name.');
+      setAlertModal({
+        title: 'Missing name',
+        message: 'Please enter a category name.',
+      });
       return;
     }
 
     if (categories.some(c => c.name.toLowerCase() === cleanName.toLowerCase())) {
-      Alert.alert('Duplicate Category', 'A category with this name already exists.');
+      setAlertModal({
+        title: 'Duplicate category',
+        message: 'A category with this name already exists.',
+      });
       return;
     }
 
@@ -274,7 +298,10 @@ export default function SettingsScreen() {
 
   const handleAddPresetGoal = (preset: GoalPreset) => {
     if (investments.some(inv => inv.name.toLowerCase() === preset.name.toLowerCase())) {
-      Alert.alert('Goal Already Added', `"${preset.name}" is already in your goals list.`);
+      setAlertModal({
+        title: 'Goal already added',
+        message: `"${preset.name}" is already in your goals list.`,
+      });
       return;
     }
     const newInv: Investment = {
@@ -293,11 +320,17 @@ export default function SettingsScreen() {
   const handleAddCustomGoal = () => {
     const cleanName = newGoalName.trim();
     if (!cleanName) {
-      Alert.alert('Missing Name', 'Please enter a name for your goal or investment.');
+      setAlertModal({
+        title: 'Missing name',
+        message: 'Please enter a name for your goal or investment.',
+      });
       return;
     }
     if (investments.some(inv => inv.name.toLowerCase() === cleanName.toLowerCase())) {
-      Alert.alert('Duplicate Goal', 'A goal with this name already exists.');
+      setAlertModal({
+        title: 'Duplicate goal',
+        message: 'A goal with this name already exists.',
+      });
       return;
     }
     const amountVal = parseFloat(newGoalAmount.replace(/[^0-9]/g, '')) || 0;
@@ -517,21 +550,21 @@ export default function SettingsScreen() {
                   </View>
                 </View>
 
-                {/* Halal / Shariah-compliant badge or conventional notice */}
+                {/* Neutral interest phrasing */}
                 {(!debtInterest || debtInterest === '0' || parseFloat(debtInterest) === 0) ? (
                   <View style={styles.halalBadge}>
-                    <Ionicons name="leaf" size={18} color={Colors.accentGreen} />
+                    <Ionicons name="leaf-outline" size={18} color={Colors.accentGreen} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.halalBadgeTitle}>0% Interest • Shariah Compliant</Text>
-                      <Text style={styles.halalBadgeSubtitle}>Qard Hasan (interest-free loan). 100% Halal debt.</Text>
+                      <Text style={styles.halalBadgeTitle}>0% Interest • Interest-free loan</Text>
+                      <Text style={styles.halalBadgeSubtitle}>No interest charges or accrual on this balance.</Text>
                     </View>
                   </View>
                 ) : (
                   <View style={styles.conventionalBadge}>
-                    <Ionicons name="alert-circle-outline" size={18} color={Colors.accentAmber} />
+                    <Ionicons name="warning-outline" size={18} color={Colors.accentAmber} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.conventionalBadgeTitle}>{debtInterest}% Annual Interest</Text>
-                      <Text style={styles.conventionalBadgeSubtitle}>Conventional loan with interest accrual.</Text>
+                      <Text style={styles.conventionalBadgeSubtitle}>Standard loan with monthly interest accrual.</Text>
                     </View>
                   </View>
                 )}
@@ -797,6 +830,26 @@ export default function SettingsScreen() {
         onConfirm={handleConfirmDeleteGoal}
       />
 
+      <ConfirmModal
+        visible={alertModal !== null}
+        title={alertModal?.title || ''}
+        message={alertModal?.message || ''}
+        confirmText="OK"
+        showCancel={false}
+        confirmStyle="primary"
+        icon="alert-circle-outline"
+        onCancel={() => {
+          const cb = alertModal?.onOk;
+          setAlertModal(null);
+          cb?.();
+        }}
+        onConfirm={() => {
+          const cb = alertModal?.onOk;
+          setAlertModal(null);
+          cb?.();
+        }}
+      />
+
       {/* Calendar Date/Month Picker Modal */}
       <CalendarPickerModal
         visible={showDatePicker}
@@ -867,7 +920,8 @@ const styles = StyleSheet.create({
   },
   overviewBudget: {
     ...Typography.caption,
-    fontWeight: '600',
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
   },
   categoryRowLast: {
     borderBottomWidth: 0,
@@ -905,9 +959,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   datePickerText: {
-    ...Typography.body,
+    ...Typography.bodyBold,
     color: Colors.textPrimary,
-    fontWeight: '600',
   },
   reminderCheckOption: {
     flexDirection: 'row',
@@ -934,10 +987,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reminderCheckLabel: {
-    ...Typography.body,
-    fontSize: 14,
+    ...Typography.bodyBold,
     color: Colors.textPrimary,
-    fontWeight: '600',
   },
   reminderCheckHint: {
     ...Typography.small,
@@ -953,12 +1004,14 @@ const styles = StyleSheet.create({
     ...Typography.bodyBold,
     color: Colors.textSecondary,
     marginRight: Spacing.sm,
+    ...TabularNums,
   },
   textInput: {
     ...Typography.bodyBold,
     color: Colors.textPrimary,
     flex: 1,
     paddingVertical: Spacing.md,
+    ...TabularNums,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
   categoryRow: {
@@ -1005,6 +1058,7 @@ const styles = StyleSheet.create({
   },
   smallTextInput: {
     ...Typography.caption,
+    ...TabularNums,
     color: Colors.textPrimary,
     flex: 1,
     paddingVertical: Spacing.sm,
@@ -1022,7 +1076,7 @@ const styles = StyleSheet.create({
   addCategoryTitle: {
     ...Typography.caption,
     color: Colors.textPrimary,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
     marginBottom: Spacing.md,
   },
   addCategoryRow: {
@@ -1095,7 +1149,6 @@ const styles = StyleSheet.create({
   halalBadgeTitle: {
     ...Typography.bodyBold,
     color: Colors.accentGreen,
-    fontSize: 13,
   },
   halalBadgeSubtitle: {
     ...Typography.small,
@@ -1116,7 +1169,6 @@ const styles = StyleSheet.create({
   conventionalBadgeTitle: {
     ...Typography.bodyBold,
     color: Colors.accentAmber,
-    fontSize: 13,
   },
   conventionalBadgeSubtitle: {
     ...Typography.small,
@@ -1127,7 +1179,6 @@ const styles = StyleSheet.create({
   investName: {
     ...Typography.bodyBold,
     color: Colors.textPrimary,
-    fontSize: 14,
   },
   investType: {
     ...Typography.small,
@@ -1192,7 +1243,7 @@ const styles = StyleSheet.create({
   presetChipText: {
     ...Typography.small,
     color: Colors.textPrimary,
-    fontWeight: '600',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   presetChipTextAdded: {
     color: Colors.textMuted,
@@ -1228,7 +1279,6 @@ const styles = StyleSheet.create({
   openAddGoalBtnText: {
     ...Typography.bodyBold,
     color: Colors.primaryLight,
-    fontSize: 14,
   },
   addGoalCard: {
     backgroundColor: Colors.surfaceElevated,
@@ -1248,7 +1298,6 @@ const styles = StyleSheet.create({
   addGoalCardTitle: {
     ...Typography.bodyBold,
     color: Colors.textPrimary,
-    fontSize: 14,
   },
   addGoalInput: {
     ...Typography.body,
@@ -1279,7 +1328,6 @@ const styles = StyleSheet.create({
   addGoalConfirmBtnText: {
     ...Typography.bodyBold,
     color: '#fff',
-    fontSize: 14,
   },
   resetCard: {
     borderColor: Colors.accentRed + '40',

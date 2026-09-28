@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums } from '../../src/theme';
 import { loadData, toggleDebtPayment } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import ChartBar from '../../src/components/ChartBar';
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   halalBadgeText: {
     ...Typography.small,
     color: Colors.accentGreen,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   conventionalBadge: {
     flexDirection: 'row',
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   conventionalBadgeText: {
     ...Typography.small,
     color: Colors.accentAmber,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   emiScheduleBadge: {
     flexDirection: 'row',
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   emiScheduleBadgeText: {
     ...Typography.small,
     color: Colors.primaryLight,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   emiScheduleBadgeMuted: {
     backgroundColor: Colors.surfaceHighlight,
@@ -427,7 +427,8 @@ const styles = StyleSheet.create({
   },
   progressPercent: {
     ...Typography.caption,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
   },
   progressTrack: {
     height: 8,
@@ -528,7 +529,7 @@ const styles = StyleSheet.create({
   clearedText: {
     ...Typography.small,
     color: Colors.accentGreen,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   paymentDetails: {
     flexDirection: 'row',
@@ -543,6 +544,7 @@ const styles = StyleSheet.create({
   paymentDetailValue: {
     ...Typography.bodyBold,
     color: Colors.textPrimary,
+    ...TabularNums,
   },
   emptyContainer: {
     justifyContent: 'center',
@@ -590,6 +592,6 @@ const styles = StyleSheet.create({
   paidBadgeText: {
     ...Typography.small,
     color: Colors.textSecondary,
-    fontWeight: '600',
+    fontFamily: Typography.bodyBold.fontFamily,
   },
 });

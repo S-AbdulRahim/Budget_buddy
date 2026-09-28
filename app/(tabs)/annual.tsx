@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, getCategoryColor } from '../../src/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, getCategoryColor, TabularNums } from '../../src/theme';
 import { loadData } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 
@@ -152,7 +152,7 @@ export default function AnnualScreen() {
                 </View>
               ))}
               <View style={[styles.tableCell, styles.tableCellTotal]}>
-                <Text style={[styles.tableCellValue, { color: Colors.primary, fontWeight: '700' }]}>
+                <Text style={[styles.tableCellValue, styles.tableCellTotalHighlight]}>
                   ₹{(annualByCat[cat] / 1000).toFixed(0)}K
                 </Text>
               </View>
@@ -308,7 +308,8 @@ const styles = StyleSheet.create({
   },
   catPercent: {
     ...Typography.small,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
     width: 35,
     textAlign: 'right',
   },
@@ -353,10 +354,15 @@ const styles = StyleSheet.create({
   tableCellTotal: {
     backgroundColor: Colors.primary + '08',
   },
+  tableCellTotalHighlight: {
+    color: Colors.primary,
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
+  },
   tableHeaderText: {
     ...Typography.small,
     color: Colors.textSecondary,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
     textTransform: 'uppercase',
   },
   miniDot: {
@@ -372,16 +378,18 @@ const styles = StyleSheet.create({
   tableCellValue: {
     ...Typography.small,
     color: Colors.textSecondary,
+    ...TabularNums,
   },
   tableTotalText: {
     ...Typography.small,
     color: Colors.textPrimary,
-    fontWeight: '800',
+    fontFamily: Typography.bodyBold.fontFamily,
     letterSpacing: 1,
   },
   tableTotalValue: {
     ...Typography.small,
     color: Colors.textPrimary,
-    fontWeight: '700',
+    fontFamily: Typography.bodyBold.fontFamily,
+    ...TabularNums,
   },
 });

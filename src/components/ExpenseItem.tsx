@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, getCategoryColor, getCategoryIcon } from '../theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums, getCategoryColor, getCategoryIcon } from '../theme';
 
 interface ExpenseItemProps {
   description: string;
@@ -157,6 +157,7 @@ const styles = StyleSheet.create({
   },
   amount: {
     ...Typography.bodyBold,
+    ...TabularNums,
     color: Colors.accentRed,
     marginBottom: Spacing.xs,
   },
@@ -170,9 +171,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    ...Typography.badge,
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   deleteBtn: {
     marginLeft: Spacing.sm,
