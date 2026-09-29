@@ -55,6 +55,8 @@ can't be recolored to match theme state, and don't scale cleanly with
 | Local data trust & privacy| `shield-checkmark-outline` |
 | Helpful tips & hints      | `bulb-outline`             |
 | Savings goals & targets   | `flag-outline`             |
+| Budgeting framework / rule| `compass-outline`          |
+| Quick override / flash    | `flash-outline`            |
 
 If a new section needs an icon not listed here, add it to this table in the
 same commit — this table is the single source of truth for icon choices,
@@ -84,11 +86,16 @@ to the theme file rather than inlining a one-off value.
   - `category*` colors — for the expense-breakdown chart and category tags
     only. These exist purely to keep categories visually distinguishable;
     don't repurpose them as status indicators.
-  - `groupNeeds` / `groupWants` / `groupSavings` — standard 50/30/20 budget
-    group indicators.
+  - `groupNeeds` / `groupWants` / `groupSavings` — budget group indicators.
   - `onPrimary` (`#FFFFFF`) — for any text or icons rendered on top of
     primary buttons, colored badges, or gradients. **Never write `#fff` or
     `#ffffff` directly in components.**
+  - `primaryButton` (`#0A766C`) — used exclusively for primary CTAs (Submit,
+    Next, Save, Add Expense) to achieve ≥4.75:1 WCAG AA contrast against white text.
+  - `textMuted` (`#858CA3`) — secondary muted text color providing ≥4.5:1 WCAG AA
+    contrast against the dark background (`#0A0E1A`).
+  - `onSuccess` (`#0A0E1A`) — dark ink color for checkmarks and text placed on
+    solid `Colors.accentGreen` backgrounds to guarantee high contrast.
   - **Color opacity & alpha:** Never use string concatenation to append hex
     alpha channels (e.g. `Colors.primary + '20'`). Always use `withAlpha(color, alpha)`
     from `src/theme/index.ts` (accepts numeric `0.0`–`1.0` or hex string `'20'`).
@@ -97,6 +104,12 @@ to the theme file rather than inlining a one-off value.
   - Never rely on color alone to convey status — pair it with an icon or
     label, both for accessibility and because category/status colors can
     sit close in hue.
+  - **Accessibility & Contrast:**
+    - All text and interactive icons must maintain at least 4.5:1 contrast
+      against their immediate background (WCAG AA).
+    - Every icon-only button (`TouchableOpacity` with only an `Ionicons` glyph)
+      must specify `accessibilityRole="button"` and a concise, descriptive
+      `accessibilityLabel` (e.g. `accessibilityLabel="Delete Groceries"`).
 - **Spacing** — always `Spacing.xs|sm|md|lg|xl|xxl|xxxl|huge`. Don't write
   `marginTop: 14` when `Spacing.md` (12) or `Spacing.lg` (16) is the
   intended rhythm — pick the nearest token rather than splitting the
@@ -218,21 +231,53 @@ to the theme file rather than inlining a one-off value.
   `storage.ts` persistence layer is the deliberate architecture. Revisit
   only if a genuine cross-screen real-time sync need emerges.
 
-### Budget architecture (50/30/20 Framework)
-- Categories must be classified into one of three `CategoryGroup` values:
-  `'Needs'`, `'Wants'`, or `'Savings'`.
-  - **Needs (50% target):** Essential survival & obligations (Rent, Groceries,
-    Utilities, Healthcare, Commute).
-  - **Wants (30% target):** Discretionary lifestyle spending (Dining Out,
-    Shopping, Subscriptions, Entertainment).
-  - **Savings (20% target):** Future security (Emergency Fund, Halal SIPs,
-    Gold, Debt payoff).
-- Every category in `budgetData.ts` and loaded from storage has a `group`
-  property. Category group benchmark bars and subtotals must be surfaced in
-  both Onboarding and Settings to guide users toward balance.
+### Budget architecture & framework rules
+- All budget split frameworks are defined in `BUDGETING_RULES` in
+  `src/data/budgetData.ts`. This array is the single source of truth:
+  - `none`: No percentage targets (freeform budgeting).
+  - `50-30-20`: Balanced 50% Needs, 30% Wants, 20% Savings.
+  - `70-20-10`: High-obligation 70% Needs, 20% Wants, 10% Savings.
+  - `80-20`: Simplified Pareto 60% Needs, 20% Wants, 20% Savings.
+  - `custom`: User-specified split summing exactly to 100%.
+- **Never hardcode 50/30/20 targets anywhere in components or screens.** All target
+  percentages must be dynamically read from `budgetingRule.targets`.
+  When `budgetingRule.targets` is `null` (`none`), hide target badges and guide ticks.
+- Users can switch their budgeting framework anytime in Settings without resetting
+  categories, spending history, or category limits.
+- Onboarding is an orchestrated 5-step wizard (`OnboardingWizard.tsx`):
+  1. Welcome Carousel
+  2. Step 1: Net Income (`StepIncome.tsx`)
+  3. Step 2: Budgeting Rule (`StepBudgetingRule.tsx`)
+  4. Step 3: Categories & Budgets (`StepCategories.tsx`)
+  5. Step 4: Debt Payoff (`StepDebt.tsx`)
+  6. Step 5: Savings & Investments (`StepGoals.tsx`)
+  7. Completion Screen (`Completion.tsx`)
+- Categories are classified into three `CategoryGroup` values: `'Needs'`, `'Wants'`,
+  or `'Savings'`.
 - When creating an expense in `AddExpenseModal`, the expense type (`Need` vs
   `Want`) automatically defaults according to the selected category's group
   (`Needs` -> `Need`, `Wants` -> `Want`).
+
+### Investment lock & debt policy
+- **0% interest debt (or 0 total debt) NEVER locks investing.** There is no financial
+  penalty for concurrent investing when debt charges no interest.
+- **>0% interest debt pauses investing** with clear copy explaining the mathematics:
+  guaranteed interest charges on debt outpace probabilistic investment returns.
+- **User override:** Users with interest-bearing debt can explicitly unpause investing
+  via "Start investing anyway" in Settings (with an explanatory `ConfirmModal`), or revert
+  at any time.
+- **Schedule payoff check:** Debt payoff is verified via
+  `data.debtTotal === 0 || data.debtPayments.length === 0 || data.debtPayments.every(p => p.isPaid)`.
+  Never check `remainingBalance === 0` across `.every()`, because in declining schedules
+  `remainingBalance` is 0 only on the final row.
+
+### Haptics & feedback
+- `expo-haptics` is used for tactile feedback on key user actions:
+  - Debt payment toggled to paid (`Haptics.ImpactFeedbackStyle.Light`).
+  - Expense deletion confirmed (`Haptics.ImpactFeedbackStyle.Light`).
+  - Onboarding completion landing (`Haptics.ImpactFeedbackStyle.Light`).
+- **All calls to `Haptics.*` MUST be wrapped in `try/catch` blocks** because web builds
+  and devices without haptic actuators will throw unhandled rejections if unwrapped.
 
 ### Brand system (`BrandMark`)
 - Use `<BrandMark />` (`src/components/BrandMark.tsx`) for the official app

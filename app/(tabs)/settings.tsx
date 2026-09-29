@@ -13,11 +13,12 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums, withAlpha, formatCurrencyFull } from '../../src/theme';
-import { loadData, updateSettings, resetData } from '../../src/data/storage';
-import { AppData, Category, CategoryGroup, Investment } from '../../src/types';
+import { loadData, updateSettings, resetData, setBudgetingRule, setDebtLockOverride } from '../../src/data/storage';
+import { AppData, Category, CategoryGroup, Investment, BudgetingRule } from '../../src/types';
 import ConfirmModal from '../../src/components/ConfirmModal';
 import CalendarPickerModal, { getOrdinal } from '../../src/components/CalendarPickerModal';
-import { POPULAR_GOAL_PRESETS, GOAL_COLORS, GoalPreset } from '../../src/data/budgetData';
+import BudgetingRulePicker from '../../src/components/BudgetingRulePicker';
+import { POPULAR_GOAL_PRESETS, GOAL_COLORS, GoalPreset, BUDGETING_RULES } from '../../src/data/budgetData';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -74,6 +75,11 @@ export default function SettingsScreen() {
   const [newCatBudget, setNewCatBudget] = useState('');
   const [newCatGroup, setNewCatGroup] = useState<CategoryGroup>('Needs');
 
+  // Budgeting Rule & Debt Override states
+  const [budgetingRule, setBudgetingRuleState] = useState<BudgetingRule>(BUDGETING_RULES[1]);
+  const [overrideDebtLock, setOverrideDebtLock] = useState(false);
+  const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
+
   const fetchData = useCallback(async () => {
     const loaded = await loadData();
     setData(loaded);
@@ -92,7 +98,30 @@ export default function SettingsScreen() {
     const hasSIP = loaded.investments.some(inv => inv.monthlyAmount > 0);
     setHasInvestments(hasSIP);
     setInvestments(loaded.investments);
+    setBudgetingRuleState(loaded.budgetingRule || BUDGETING_RULES[1]);
+    setOverrideDebtLock(!!loaded.overrideDebtLock);
   }, []);
+
+  const handleSelectBudgetingRule = async (newRule: BudgetingRule, isValid: boolean) => {
+    setBudgetingRuleState(newRule);
+    if (isValid) {
+      await setBudgetingRule(newRule);
+      setData(prev => (prev ? { ...prev, budgetingRule: newRule } : prev));
+    }
+  };
+
+  const handleConfirmOverride = async () => {
+    setShowOverrideConfirm(false);
+    setOverrideDebtLock(true);
+    await setDebtLockOverride(true);
+    setData(prev => (prev ? { ...prev, overrideDebtLock: true } : prev));
+  };
+
+  const handleRevertOverride = async () => {
+    setOverrideDebtLock(false);
+    await setDebtLockOverride(false);
+    setData(prev => (prev ? { ...prev, overrideDebtLock: false } : prev));
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -205,7 +234,10 @@ export default function SettingsScreen() {
     }));
 
     try {
-      await updateSettings(parsedSalary, categories, debtSettings, finalInvestments);
+      await updateSettings(parsedSalary, categories, debtSettings, finalInvestments, {
+        budgetingRule,
+        overrideDebtLock,
+      });
       setAlertModal({
         title: 'Settings saved',
         message: 'Your configurations have been updated successfully.',
@@ -421,6 +453,21 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Budgeting Framework Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Ionicons name="compass-outline" size={20} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Budgeting Framework</Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>
+            Choose a percentage framework to guide your spending, or budget freely without a rule.
+          </Text>
+          <BudgetingRulePicker
+            selectedRule={budgetingRule}
+            onSelectRule={handleSelectBudgetingRule}
+          />
+        </View>
+
         {/* Categories Budgets */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -436,70 +483,91 @@ export default function SettingsScreen() {
             </Text>
           </View>
 
-          {([
-            { key: 'Needs' as CategoryGroup, title: 'Needs (50% target)', color: Colors.groupNeeds, icon: 'home-outline' as const },
-            { key: 'Wants' as CategoryGroup, title: 'Wants (30% target)', color: Colors.groupWants, icon: 'cart-outline' as const },
-            { key: 'Savings' as CategoryGroup, title: 'Savings & Debt (20% target)', color: Colors.groupSavings, icon: 'wallet-outline' as const },
-          ]).map(group => {
-            const groupCats = categories.filter(c => (c.group || 'Needs') === group.key);
-            const groupSubtotal = groupCats.reduce((sum, c) => sum + c.budget, 0);
-            const parsedSal = parseFloat(salary) || 1;
-            const groupPct = Math.round((groupSubtotal / parsedSal) * 100);
+          {(() => {
+            const hasTargets = budgetingRule?.targets !== null;
+            const groups = [
+              {
+                key: 'Needs' as CategoryGroup,
+                title: hasTargets ? `Needs (${budgetingRule.targets!.Needs}% target)` : 'Needs',
+                color: Colors.groupNeeds,
+                icon: 'home-outline' as const,
+              },
+              {
+                key: 'Wants' as CategoryGroup,
+                title: hasTargets ? `Wants (${budgetingRule.targets!.Wants}% target)` : 'Wants',
+                color: Colors.groupWants,
+                icon: 'cart-outline' as const,
+              },
+              {
+                key: 'Savings' as CategoryGroup,
+                title: hasTargets ? `Savings & Debt (${budgetingRule.targets!.Savings}% target)` : 'Savings & Debt',
+                color: Colors.groupSavings,
+                icon: 'wallet-outline' as const,
+              },
+            ];
 
-            return (
-              <View key={group.key} style={[styles.card, { marginBottom: Spacing.md }]}>
-                <View style={styles.groupSubHeader}>
-                  <View style={styles.groupSubTitleRow}>
-                    <Ionicons name={group.icon} size={16} color={group.color} />
-                    <Text style={[styles.groupSubTitle, { color: group.color }]}>{group.title}</Text>
-                  </View>
-                  <Text style={styles.groupSubAmount}>
-                    {formatCurrencyFull(groupSubtotal)} ({groupPct}%)
-                  </Text>
-                </View>
+            return groups.map(group => {
+              const groupCats = categories.filter(c => (c.group || 'Needs') === group.key);
+              const groupSubtotal = groupCats.reduce((sum, c) => sum + c.budget, 0);
+              const parsedSal = parseFloat(salary) || 1;
+              const groupPct = Math.round((groupSubtotal / parsedSal) * 100);
 
-                {groupCats.length === 0 ? (
-                  <Text style={styles.emptyGroupText}>No categories in this group.</Text>
-                ) : (
-                  groupCats.map((cat, index) => (
-                    <View
-                      key={cat.id}
-                      style={[
-                        styles.categoryRow,
-                        index === groupCats.length - 1 && styles.categoryRowLast,
-                      ]}
-                    >
-                      <View style={styles.categoryInfo}>
-                        <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
-                        <Text style={styles.categoryName}>{cat.name}</Text>
-                      </View>
-                      
-                      <View style={styles.categoryRowRight}>
-                        <View style={styles.smallInputWrap}>
-                          <Text style={styles.smallInputSymbol}>₹</Text>
-                          <TextInput
-                            style={styles.smallTextInput}
-                            keyboardType="numeric"
-                            value={cat.budget.toString()}
-                            onChangeText={text => handleUpdateCategoryBudget(cat.id, text)}
-                            cursorColor={Colors.primaryLight}
-                            selectionColor={Colors.primary}
-                          />
-                        </View>
-                        <TouchableOpacity
-                          style={styles.deleteCatButton}
-                          onPress={() => handleDeleteCategory(cat.id, cat.name)}
-                          accessibilityLabel={`Delete ${cat.name}`}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-                        </TouchableOpacity>
-                      </View>
+              return (
+                <View key={group.key} style={[styles.card, { marginBottom: Spacing.md }]}>
+                  <View style={styles.groupSubHeader}>
+                    <View style={styles.groupSubTitleRow}>
+                      <Ionicons name={group.icon} size={16} color={group.color} />
+                      <Text style={[styles.groupSubTitle, { color: group.color }]}>{group.title}</Text>
                     </View>
-                  ))
-                )}
-              </View>
-            );
-          })}
+                    <Text style={styles.groupSubAmount}>
+                      {formatCurrencyFull(groupSubtotal)} ({groupPct}%)
+                    </Text>
+                  </View>
+
+                  {groupCats.length === 0 ? (
+                    <Text style={styles.emptyGroupText}>No categories in this group.</Text>
+                  ) : (
+                    groupCats.map((cat, index) => (
+                      <View
+                        key={cat.id}
+                        style={[
+                          styles.categoryRow,
+                          index === groupCats.length - 1 && styles.categoryRowLast,
+                        ]}
+                      >
+                        <View style={styles.categoryInfo}>
+                          <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
+                          <Text style={styles.categoryName}>{cat.name}</Text>
+                        </View>
+                        
+                        <View style={styles.categoryRowRight}>
+                          <View style={styles.smallInputWrap}>
+                            <Text style={styles.smallInputSymbol}>₹</Text>
+                            <TextInput
+                              style={styles.smallTextInput}
+                              keyboardType="numeric"
+                              value={cat.budget.toString()}
+                              onChangeText={text => handleUpdateCategoryBudget(cat.id, text)}
+                              cursorColor={Colors.primaryLight}
+                              selectionColor={Colors.primary}
+                            />
+                          </View>
+                          <TouchableOpacity
+                            style={styles.deleteCatButton}
+                            onPress={() => handleDeleteCategory(cat.id, cat.name)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Delete ${cat.name}`}
+                          >
+                            <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
+              );
+            });
+          })()}
 
           {/* Add Custom Category */}
           <View style={styles.card}>
@@ -560,7 +628,12 @@ export default function SettingsScreen() {
                     selectionColor={Colors.primary}
                   />
                 </View>
-                <TouchableOpacity style={styles.addCatButton} onPress={handleAddCategory}>
+                <TouchableOpacity
+                  style={styles.addCatButton}
+                  onPress={handleAddCategory}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add category"
+                >
                   <Ionicons name="add" size={20} color={Colors.onPrimary} />
                 </TouchableOpacity>
               </View>
@@ -718,6 +791,51 @@ export default function SettingsScreen() {
 
             {hasInvestments && (
               <View style={styles.formContent}>
+                {/* High-Interest Debt Pause Notice & Override Control */}
+                {hasDebt && (parseFloat(debtInterest) || 0) > 0 && (
+                  <View style={!overrideDebtLock ? styles.lockNoticeCard : styles.activeOverrideNoticeCard}>
+                    <View style={styles.lockNoticeHeader}>
+                      <Ionicons
+                        name={!overrideDebtLock ? "lock-closed-outline" : "checkmark-circle"}
+                        size={18}
+                        color={!overrideDebtLock ? Colors.accentAmber : Colors.accentGreen}
+                      />
+                      <Text style={!overrideDebtLock ? styles.lockNoticeTitle : styles.activeOverrideTitle}>
+                        {!overrideDebtLock
+                          ? `Investments Paused for ${debtInterest}% Interest Debt`
+                          : 'Concurrent Investing Active'}
+                      </Text>
+                    </View>
+                    <Text style={styles.lockNoticeText}>
+                      {!overrideDebtLock
+                        ? `Your loan accrues ${debtInterest}% annual interest. Paying off interest-bearing debt first eliminates costly finance charges. You can override this and start investing concurrently.`
+                        : `You have chosen to invest concurrently alongside your ${debtInterest}% interest loan repayments.`}
+                    </Text>
+                    {!overrideDebtLock ? (
+                      <TouchableOpacity
+                        style={styles.overrideBtn}
+                        onPress={() => setShowOverrideConfirm(true)}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Start investing anyway"
+                      >
+                        <Ionicons name="flash-outline" size={16} color={Colors.accent} />
+                        <Text style={styles.overrideBtnText}>Start investing anyway</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.revertOverrideBtn}
+                        onPress={handleRevertOverride}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Pause investing to prioritize debt"
+                      >
+                        <Text style={styles.revertOverrideBtnText}>Pause investing to prioritize debt payoff</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
                 {/* Popular Presets with Multi-Row Wrapping */}
                 <View style={styles.presetSection}>
                   <Text style={styles.presetSectionTitle}>Quick Add Suggestions:</Text>
@@ -792,6 +910,7 @@ export default function SettingsScreen() {
                               <TouchableOpacity
                                 style={styles.deleteGoalBtn}
                                 onPress={() => handleDeleteInvest(inv.id, inv.name)}
+                                accessibilityRole="button"
                                 accessibilityLabel={`Delete ${inv.name}`}
                               >
                                 <Ionicons name="trash-outline" size={18} color={Colors.danger} />
@@ -923,6 +1042,8 @@ export default function SettingsScreen() {
                     <TouchableOpacity
                       style={styles.addGoalConfirmBtn}
                       onPress={handleAddCustomGoal}
+                      accessibilityRole="button"
+                      accessibilityLabel="Add goal"
                     >
                       <Ionicons name="add" size={18} color={Colors.onPrimary} />
                       <Text style={styles.addGoalConfirmBtnText}>Add Goal</Text>
@@ -995,6 +1116,18 @@ export default function SettingsScreen() {
         icon="trash-outline"
         onCancel={() => setGoalToDelete(null)}
         onConfirm={handleConfirmDeleteGoal}
+      />
+
+      <ConfirmModal
+        visible={showOverrideConfirm}
+        title="Start investing anyway?"
+        message={`Your debt accrues interest at ${debtInterest}%. Mathematically, paying off high-interest debt usually saves more money than standard investments earn. Are you sure you want to invest concurrently?`}
+        confirmText="Start investing anyway"
+        cancelText="Keep debt focus"
+        confirmStyle="primary"
+        icon="alert-circle-outline"
+        onCancel={() => setShowOverrideConfirm(false)}
+        onConfirm={handleConfirmOverride}
       />
 
       <ConfirmModal
@@ -1084,6 +1217,78 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.subtitle,
     color: Colors.textPrimary,
+  },
+  sectionSubtitle: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+    lineHeight: 18,
+  },
+  lockNoticeCard: {
+    backgroundColor: withAlpha(Colors.accentAmber, 0.08),
+    borderWidth: 1,
+    borderColor: withAlpha(Colors.accentAmber, 0.25),
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  activeOverrideNoticeCard: {
+    backgroundColor: withAlpha(Colors.accentGreen, 0.08),
+    borderWidth: 1,
+    borderColor: withAlpha(Colors.accentGreen, 0.25),
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  lockNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  lockNoticeTitle: {
+    ...Typography.bodyBold,
+    color: Colors.accentAmber,
+    flex: 1,
+  },
+  activeOverrideTitle: {
+    ...Typography.bodyBold,
+    color: Colors.accentGreen,
+    flex: 1,
+  },
+  lockNoticeText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  overrideBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: withAlpha(Colors.accent, 0.15),
+    borderWidth: 1,
+    borderColor: withAlpha(Colors.accent, 0.35),
+    borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  overrideBtnText: {
+    ...Typography.caption,
+    fontFamily: Typography.bodyBold.fontFamily,
+    color: Colors.accent,
+  },
+  revertOverrideBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  revertOverrideBtnText: {
+    ...Typography.small,
+    color: Colors.textMuted,
+    textDecorationLine: 'underline',
   },
   overviewBudget: {
     ...Typography.caption,
@@ -1265,7 +1470,7 @@ const styles = StyleSheet.create({
   addCatButton: {
     width: 40,
     height: 40,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryButton,
     borderRadius: BorderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1487,7 +1692,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryButton,
     borderRadius: BorderRadius.sm,
     paddingVertical: 10,
     marginTop: 4,
@@ -1524,7 +1729,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryButton,
     paddingVertical: Spacing.xl,
     borderRadius: BorderRadius.xl,
     marginTop: Spacing.lg,

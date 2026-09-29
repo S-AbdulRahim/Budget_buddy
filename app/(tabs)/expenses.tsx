@@ -4,14 +4,16 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, BorderRadius, Typography, Shadows, withAlpha } from '../../src/theme';
 import { loadData, addExpense, deleteExpense } from '../../src/data/storage';
-import { AppData } from '../../src/types';
+import { AppData, Expense } from '../../src/types';
 import ExpenseItem from '../../src/components/ExpenseItem';
 import AddExpenseModal from '../../src/components/AddExpenseModal';
 import ConfirmModal from '../../src/components/ConfirmModal';
@@ -61,6 +63,11 @@ export default function ExpensesScreen() {
       const updated = await deleteExpense(deleteTarget.id);
       setData(updated);
       setDeleteTarget(null);
+      try {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // Haptics unavailable on web or unconfigured devices
+      }
     }
   };
 
@@ -81,83 +88,87 @@ export default function ExpensesScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
+      <FlatList<Expense>
+        data={filteredExpenses}
+        keyExtractor={item => item.id}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
-      >
-        {/* Header */}
-        <View style={styles.header}>
+        ListHeaderComponent={
           <View>
-            <Text style={styles.title}>Expenses</Text>
-            <Text style={styles.subtitle}>{data.expenses.length} transactions</Text>
-          </View>
-          <View style={styles.totalBadge}>
-            <Text style={styles.totalLabel}>Total Spent</Text>
-            <Text style={styles.totalValue}>₹{totalSpent.toLocaleString('en-IN')}</Text>
-          </View>
-        </View>
+            {/* Header */}
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.title}>Expenses</Text>
+                <Text style={styles.subtitle}>{data.expenses.length} transactions</Text>
+              </View>
+              <View style={styles.totalBadge}>
+                <Text style={styles.totalLabel}>Total Spent</Text>
+                <Text style={styles.totalValue}>₹{totalSpent.toLocaleString('en-IN')}</Text>
+              </View>
+            </View>
 
-        {/* Filters */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterContent}
-        >
-          {categories.map(cat => (
-            <TouchableOpacity
-              key={cat}
-              style={[
-                styles.filterChip,
-                filter === cat && styles.filterChipActive,
-              ]}
-              onPress={() => setFilter(cat)}
+            {/* Filters */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
+              contentContainerStyle={styles.filterContent}
             >
-              <Text
-                style={[
-                  styles.filterText,
-                  filter === cat && styles.filterTextActive,
-                ]}
-              >
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Expense List */}
-        {filteredExpenses.length === 0 ? (
+              {categories.map(cat => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.filterChip,
+                    filter === cat && styles.filterChipActive,
+                  ]}
+                  onPress={() => setFilter(cat)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Filter by ${cat}`}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      filter === cat && styles.filterTextActive,
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <ExpenseItem
+            description={item.description}
+            category={item.category}
+            amount={item.amount}
+            date={item.date}
+            paymentMode={item.paymentMode}
+            type={item.type}
+            onDelete={() => handleDelete(item.id, item.description)}
+          />
+        )}
+        ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="receipt-outline" size={64} color={Colors.textMuted} />
             <Text style={styles.emptyText}>No expenses yet</Text>
             <Text style={styles.emptySubtext}>Tap + to log your first expense</Text>
           </View>
-        ) : (
-          filteredExpenses.map(expense => (
-            <ExpenseItem
-              key={expense.id}
-              description={expense.description}
-              category={expense.category}
-              amount={expense.amount}
-              date={expense.date}
-              paymentMode={expense.paymentMode}
-              type={expense.type}
-              onDelete={() => handleDelete(expense.id, expense.description)}
-            />
-          ))
-        )}
-
-        <View style={{ height: Spacing.huge * 2 }} />
-      </ScrollView>
+        }
+        ListFooterComponent={<View style={{ height: Spacing.huge * 2 }} />}
+      />
 
       {/* FAB */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => setShowModal(true)}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Add expense"
       >
         <Ionicons name="add" size={28} color={Colors.onPrimary} />
       </TouchableOpacity>
@@ -283,7 +294,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryButton,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.elevated,

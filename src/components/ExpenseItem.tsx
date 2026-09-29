@@ -98,7 +98,12 @@ export default function ExpenseItem({
       </View>
       
       {onDelete && (
-        <TouchableOpacity onPress={onDelete} style={styles.deleteBtn}>
+        <TouchableOpacity
+          onPress={onDelete}
+          style={styles.deleteBtn}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete ${description}`}
+        >
           <Ionicons name="trash-outline" size={18} color={Colors.danger} />
         </TouchableOpacity>
       )}

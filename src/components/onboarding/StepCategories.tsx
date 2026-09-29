@@ -18,7 +18,7 @@ import {
   formatCurrencyFull,
   withAlpha,
 } from '../../theme';
-import { Category, CategoryGroup } from '../../types';
+import { Category, CategoryGroup, BudgetingRule } from '../../types';
 
 export interface StepCategoriesProps {
   salary: number;
@@ -29,6 +29,7 @@ export interface StepCategoriesProps {
   onChangeCategoryBudget: (id: string, text: string) => void;
   onAddCategory: (group: CategoryGroup, name: string, budget: string) => void;
   firstInputRef?: React.RefObject<TextInput | null>;
+  rule: BudgetingRule;
 }
 
 interface GroupConfig {
@@ -40,33 +41,6 @@ interface GroupConfig {
   description: string;
 }
 
-const GROUPS: GroupConfig[] = [
-  {
-    key: 'Needs',
-    title: 'Needs',
-    targetPercent: 50,
-    color: Colors.groupNeeds,
-    icon: 'home-outline',
-    description: 'Housing, groceries, transit, utilities & health',
-  },
-  {
-    key: 'Wants',
-    title: 'Wants',
-    targetPercent: 30,
-    color: Colors.groupWants,
-    icon: 'cart-outline',
-    description: 'Entertainment, shopping, dining & lifestyle',
-  },
-  {
-    key: 'Savings',
-    title: 'Savings & Debt',
-    targetPercent: 20,
-    color: Colors.groupSavings,
-    icon: 'wallet-outline',
-    description: 'Emergency reserve, investments & savings buffer',
-  },
-];
-
 export default function StepCategories({
   salary,
   categoriesList,
@@ -76,7 +50,39 @@ export default function StepCategories({
   onChangeCategoryBudget,
   onAddCategory,
   firstInputRef,
+  rule,
 }: StepCategoriesProps) {
+  const hasTargets = rule.targets !== null;
+  const targetNeeds = rule.targets?.Needs ?? 0;
+  const targetWants = rule.targets?.Wants ?? 0;
+  const targetSavings = rule.targets?.Savings ?? 0;
+
+  const GROUPS: GroupConfig[] = [
+    {
+      key: 'Needs',
+      title: 'Needs',
+      targetPercent: targetNeeds,
+      color: Colors.groupNeeds,
+      icon: 'home-outline',
+      description: 'Housing, groceries, transit, utilities & health',
+    },
+    {
+      key: 'Wants',
+      title: 'Wants',
+      targetPercent: targetWants,
+      color: Colors.groupWants,
+      icon: 'cart-outline',
+      description: 'Entertainment, shopping, dining & lifestyle',
+    },
+    {
+      key: 'Savings',
+      title: 'Savings & Debt',
+      targetPercent: targetSavings,
+      color: Colors.groupSavings,
+      icon: 'wallet-outline',
+      description: 'Emergency reserve, investments & savings buffer',
+    },
+  ];
   // Inline add category form state per group
   const [activeAddGroup, setActiveAddGroup] = useState<CategoryGroup | null>(null);
   const [newCatName, setNewCatName] = useState('');
@@ -115,7 +121,9 @@ export default function StepCategories({
       </View>
       <Text style={styles.stepTitle}>Plan your spending</Text>
       <Text style={styles.stepDescription}>
-        Group expenses by Needs (50%), Wants (30%), and Savings (20%). Adjust limits or add categories as needed.
+        {hasTargets
+          ? `Group expenses by Needs (${targetNeeds}%), Wants (${targetWants}%), and Savings (${targetSavings}%). Adjust limits or add categories as needed.`
+          : 'Group your expenses by Needs, Wants, and Savings — set whatever limits make sense for you.'}
       </Text>
 
       {/* Salary vs Allocated Overview Bar */}
@@ -150,7 +158,7 @@ export default function StepCategories({
           }, 0);
 
           const groupPercent = salary > 0 ? Math.round((groupSubtotal / salary) * 100) : 0;
-          const isOverGroupTarget = groupPercent > group.targetPercent;
+          const isOverGroupTarget = hasTargets && groupPercent > group.targetPercent;
           const progressWidth = Math.min(100, groupPercent);
 
           return (
@@ -164,11 +172,13 @@ export default function StepCategories({
                   <View>
                     <View style={styles.groupNameAndTarget}>
                       <Text style={styles.groupTitle}>{group.title}</Text>
-                      <View style={[styles.targetBadge, { borderColor: withAlpha(group.color, 0.4) }]}>
-                        <Text style={[styles.targetBadgeText, { color: group.color }]}>
-                          Target: {group.targetPercent}%
-                        </Text>
-                      </View>
+                      {hasTargets && (
+                        <View style={[styles.targetBadge, { borderColor: withAlpha(group.color, 0.4) }]}>
+                          <Text style={[styles.targetBadgeText, { color: group.color }]}>
+                            Target: {group.targetPercent}%
+                          </Text>
+                        </View>
+                      )}
                     </View>
                     <Text style={styles.groupDescription}>{group.description}</Text>
                   </View>
@@ -190,7 +200,7 @@ export default function StepCategories({
                 </View>
               </View>
 
-              {/* Progress bar with 50/30/20 target guide tick */}
+              {/* Progress bar with target guide tick */}
               <View style={styles.progressBarWrapper}>
                 <View style={styles.progressBarTrack}>
                   <View
@@ -203,18 +213,22 @@ export default function StepCategories({
                     ]}
                   />
                   {/* Guideline Target Tick */}
-                  <View
-                    style={[
-                      styles.targetTickLine,
-                      { left: `${group.targetPercent}%` },
-                    ]}
-                  />
+                  {hasTargets && (
+                    <View
+                      style={[
+                        styles.targetTickLine,
+                        { left: `${group.targetPercent}%` },
+                      ]}
+                    />
+                  )}
                 </View>
                 <View style={styles.progressBarMeta}>
                   <Text style={styles.progressBarLabel}>0%</Text>
-                  <Text style={[styles.progressBarLabel, { color: group.color }]}>
-                    Guide: {group.targetPercent}%
-                  </Text>
+                  {hasTargets && (
+                    <Text style={[styles.progressBarLabel, { color: group.color }]}>
+                      Guide: {group.targetPercent}%
+                    </Text>
+                  )}
                   <Text style={styles.progressBarLabel}>100%</Text>
                 </View>
               </View>
@@ -347,7 +361,9 @@ export default function StepCategories({
       <View style={styles.tipCard}>
         <Ionicons name="bulb-outline" size={20} color={Colors.accent} />
         <Text style={styles.tipText}>
-          The 50/30/20 benchmark: Allocate up to 50% for essentials, 30% for discretionary wants, and 20% for debt payoff and savings.
+          {hasTargets
+            ? `The ${rule.label} benchmark: Allocate up to ${targetNeeds}% for essentials, ${targetWants}% for discretionary wants, and ${targetSavings}% for debt payoff and savings.`
+            : 'Personal limits: Allocate whatever limits match your current lifestyle and priorities without pressure from fixed benchmarks.'}
         </Text>
       </View>
     </View>

@@ -48,6 +48,15 @@ export interface MonthlyProjection {
   total: number;
 }
 
+export type BudgetingRuleId = 'none' | '50-30-20' | '70-20-10' | '80-20' | 'custom';
+
+export interface BudgetingRule {
+  id: BudgetingRuleId;
+  label: string;
+  description: string;
+  targets: { Needs: number; Wants: number; Savings: number } | null; // null when id === 'none'
+}
+
 export interface AppData {
   salary: number;
   expenses: Expense[];
@@ -63,4 +72,6 @@ export interface AppData {
   debtEmiDay?: number;
   debtReminderEnabled?: boolean;
   isSetupCompleted?: boolean;
+  budgetingRule?: BudgetingRule;
+  overrideDebtLock?: boolean;
 }

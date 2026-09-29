@@ -21,10 +21,11 @@ import {
   Shadows,
   formatCurrencyFull,
 } from '../theme';
-import { Category, CategoryGroup, Investment } from '../types';
+import { Category, CategoryGroup, Investment, BudgetingRule } from '../types';
 import { updateSettings } from '../data/storage';
 import {
   INITIAL_EMPTY_DATA,
+  BUDGETING_RULES,
   GoalPreset,
   generateDebtSchedule,
 } from '../data/budgetData';
@@ -35,6 +36,7 @@ import BrandMark from './BrandMark';
 // Subcomponents
 import WelcomeCarousel from './onboarding/WelcomeCarousel';
 import StepIncome from './onboarding/StepIncome';
+import StepBudgetingRule from './onboarding/StepBudgetingRule';
 import StepCategories from './onboarding/StepCategories';
 import StepDebt from './onboarding/StepDebt';
 import StepGoals, { WizardGoal } from './onboarding/StepGoals';
@@ -45,9 +47,11 @@ interface OnboardingWizardProps {
 }
 
 export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
-  // Wizard stage: 'welcome' -> 'setup' (steps 1-4) -> 'completion'
+  // Wizard stage: 'welcome' -> 'setup' (steps 1-5) -> 'completion'
   const [stage, setStage] = useState<'welcome' | 'setup' | 'completion'>('welcome');
   const [step, setStep] = useState(1);
+  const [budgetingRule, setBudgetingRule] = useState<BudgetingRule>(BUDGETING_RULES[1]);
+  const [isRuleValid, setIsRuleValid] = useState<boolean>(true);
   const [contentWidth, setContentWidth] = useState(
     Math.min(Dimensions.get('window').width, 640)
   );
@@ -150,11 +154,11 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     const timer = setTimeout(() => {
       if (step === 1) {
         salaryInputRef.current?.focus();
-      } else if (step === 2) {
+      } else if (step === 3) {
         firstCategoryInputRef.current?.focus();
-      } else if (step === 3 && hasDebt) {
+      } else if (step === 4 && hasDebt) {
         debtTotalInputRef.current?.focus();
-      } else if (step === 4 && hasInvestments) {
+      } else if (step === 5 && hasInvestments) {
         firstInvestInputRef.current?.focus();
       }
     }, 120);
@@ -284,6 +288,15 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
       }
       setStep(2);
     } else if (step === 2) {
+      if (budgetingRule.id === 'custom' && !isRuleValid) {
+        setErrorModal({
+          title: 'Invalid split',
+          message: 'Your custom Needs, Wants, and Savings percentages must sum to exactly 100%.',
+        });
+        return;
+      }
+      setStep(3);
+    } else if (step === 3) {
       const totalBudget = Object.keys(categoryBudgets).reduce((sum, key) => {
         if (!enabledCategories[key]) return sum;
         return sum + (parseFloat(categoryBudgets[key]) || 0);
@@ -297,8 +310,8 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         });
         return;
       }
-      setStep(3);
-    } else if (step === 3) {
+      setStep(4);
+    } else if (step === 4) {
       if (hasDebt) {
         const total = parseFloat(debtTotal);
         const emi = parseFloat(debtEmi);
@@ -336,7 +349,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
           }
         }
       }
-      setStep(4);
+      setStep(5);
     }
   };
 
@@ -392,7 +405,10 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         };
       });
 
-      await updateSettings(parsedSalary, finalCategories, debtSettings, investments);
+      await updateSettings(parsedSalary, finalCategories, debtSettings, investments, {
+        budgetingRule,
+        overrideDebtLock: false,
+      });
 
       // Transition to completion screen
       setStage('completion');
@@ -479,6 +495,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
           onGoToDashboard={onSuccess}
           animValue={completionAnim}
           contentWidth={contentWidth}
+          budgetingRule={budgetingRule}
         />
       </View>
     );
@@ -501,11 +518,11 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         {/* Header with BrandMark & Step Indicators */}
         <View style={styles.header}>
           <BrandMark size="sm" />
-          <Text style={styles.headerSubtitle}>Step {step} of 4</Text>
+          <Text style={styles.headerSubtitle}>Step {step} of 5</Text>
 
           {/* Progress Indicators */}
           <View style={styles.indicators}>
-            {[1, 2, 3, 4].map(i => (
+            {[1, 2, 3, 4, 5].map(i => (
               <View
                 key={i}
                 style={[
@@ -527,8 +544,19 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
           />
         )}
 
-        {/* Step 2: Spending Categories (50/30/20 Groups) */}
+        {/* Step 2: Budgeting Rule Selection */}
         {step === 2 && (
+          <StepBudgetingRule
+            selectedRule={budgetingRule}
+            onSelectRule={(rule, valid) => {
+              setBudgetingRule(rule);
+              setIsRuleValid(valid);
+            }}
+          />
+        )}
+
+        {/* Step 3: Spending Categories */}
+        {step === 3 && (
           <StepCategories
             salary={parseFloat(salary) || 0}
             categoriesList={categoriesList}
@@ -538,11 +566,12 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
             onChangeCategoryBudget={handleChangeCategoryBudget}
             onAddCategory={handleAddCategory}
             firstInputRef={firstCategoryInputRef}
+            rule={budgetingRule}
           />
         )}
 
-        {/* Step 3: Debt Paydown */}
-        {step === 3 && (
+        {/* Step 4: Debt Paydown */}
+        {step === 4 && (
           <StepDebt
             hasDebt={hasDebt}
             onToggleHasDebt={setHasDebt}
@@ -561,8 +590,8 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
           />
         )}
 
-        {/* Step 4: Savings & Goals */}
-        {step === 4 && (
+        {/* Step 5: Savings & Goals */}
+        {step === 5 && (
           <StepGoals
             hasInvestments={hasInvestments}
             onToggleHasInvestments={setHasInvestments}
@@ -594,7 +623,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
             <View style={{ flex: 1 }} />
           )}
 
-          {step < 4 ? (
+          {step < 5 ? (
             <TouchableOpacity
               style={styles.nextButton}
               onPress={handleNext}
@@ -708,7 +737,7 @@ const styles = StyleSheet.create({
   nextButton: {
     flex: 1.5,
     paddingVertical: Spacing.lg,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryButton,
     borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -723,7 +752,7 @@ const styles = StyleSheet.create({
   submitButton: {
     flex: 1.5,
     paddingVertical: Spacing.lg,
-    backgroundColor: Colors.accentGreen,
+    backgroundColor: Colors.primaryButton,
     borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',

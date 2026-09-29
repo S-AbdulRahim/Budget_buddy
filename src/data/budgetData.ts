@@ -1,5 +1,5 @@
 // Default budget data seeded from the user's Excel spreadsheet
-import { AppData, Category, CategoryGroup, DebtPayment, MonthlyProjection } from '../types';
+import { AppData, BudgetingRule, Category, CategoryGroup, DebtPayment, MonthlyProjection } from '../types';
 import { Colors } from '../theme';
 
 export const DEFAULT_CATEGORY_GROUPS: Record<string, CategoryGroup> = {
@@ -12,6 +12,39 @@ export const DEFAULT_CATEGORY_GROUPS: Record<string, CategoryGroup> = {
   Shopping: 'Wants',
   Savings: 'Savings',
 };
+
+export const BUDGETING_RULES: BudgetingRule[] = [
+  {
+    id: 'none',
+    label: "No rule — I'll set my own limits",
+    description: 'Just enter a budget for each category. No suggested split.',
+    targets: null,
+  },
+  {
+    id: '50-30-20',
+    label: '50 / 30 / 20',
+    description: '50% needs, 30% wants, 20% savings & debt. The most common starting point.',
+    targets: { Needs: 50, Wants: 30, Savings: 20 },
+  },
+  {
+    id: '70-20-10',
+    label: '70 / 20 / 10',
+    description: '70% needs, 20% savings & debt, 10% wants. For tighter budgets or big debt goals.',
+    targets: { Needs: 70, Wants: 10, Savings: 20 },
+  },
+  {
+    id: '80-20',
+    label: '80 / 20',
+    description: '80% everyday spending, 20% savings & debt. Simple, two-bucket thinking.',
+    targets: { Needs: 60, Wants: 20, Savings: 20 },
+  },
+  {
+    id: 'custom',
+    label: 'Custom split',
+    description: 'Set your own Needs / Wants / Savings percentages.',
+    targets: null,
+  },
+];
 
 export function generateDebtSchedule(total: number, emi: number, startMonthStr: string, interestRate: number = 0): DebtPayment[] {
   if (total <= 0 || emi <= 0) return [];
@@ -174,6 +207,8 @@ export const INITIAL_EMPTY_DATA: AppData = {
   
   annualProjections: [],
   isSetupCompleted: false,
+  budgetingRule: BUDGETING_RULES[1],
+  overrideDebtLock: false,
 };
 
 // Kept for backward compatibility if any older layouts reference it

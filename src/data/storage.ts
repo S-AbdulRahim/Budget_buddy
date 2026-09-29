@@ -1,9 +1,10 @@
 // AsyncStorage wrapper for data persistence
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppData, Expense, Category, Investment } from '../types';
+import { AppData, Expense, Category, Investment, BudgetingRule } from '../types';
 import {
   INITIAL_EMPTY_DATA,
   DEFAULT_CATEGORY_GROUPS,
+  BUDGETING_RULES,
   generateDebtSchedule,
   generateAnnualProjections,
 } from './budgetData';
@@ -27,6 +28,14 @@ export async function loadData(): Promise<AppData> {
           }
           return cat;
         });
+      }
+      if (!data.budgetingRule) {
+        hasMigration = true;
+        data.budgetingRule = BUDGETING_RULES[1]; // Default to 50-30-20
+      }
+      if (data.overrideDebtLock === undefined) {
+        hasMigration = true;
+        data.overrideDebtLock = false;
       }
       if (hasMigration) {
         await saveData(data);
@@ -97,8 +106,9 @@ export async function toggleDebtPayment(month: string): Promise<AppData> {
 export async function updateSettings(
   salary: number,
   categories: Category[],
-  debt: { total: number; emi: number; startMonth: string; interestRate?: number; emiDay?: number; reminderEnabled?: boolean },
-  investments: Investment[]
+  debt: { total: number; emi: number; startMonth: string; interestRate?: number; emiDay?: number; reminderEnabled?: boolean; overrideDebtLock?: boolean },
+  investments: Investment[],
+  extraSettings?: { budgetingRule?: BudgetingRule; overrideDebtLock?: boolean }
 ): Promise<AppData> {
   const currentData = await loadData();
   
@@ -139,11 +149,31 @@ export async function updateSettings(
     debtPayments: updatedPayments,
     investments,
     annualProjections,
+    budgetingRule: extraSettings?.budgetingRule !== undefined ? extraSettings.budgetingRule : currentData.budgetingRule || BUDGETING_RULES[1],
+    overrideDebtLock: extraSettings?.overrideDebtLock !== undefined
+      ? extraSettings.overrideDebtLock
+      : debt.overrideDebtLock !== undefined
+      ? debt.overrideDebtLock
+      : currentData.overrideDebtLock ?? false,
     isSetupCompleted: true,
   };
   
   await saveData(updatedData);
   return updatedData;
+}
+
+export async function setDebtLockOverride(override: boolean): Promise<AppData> {
+  const data = await loadData();
+  data.overrideDebtLock = override;
+  await saveData(data);
+  return data;
+}
+
+export async function setBudgetingRule(rule: BudgetingRule): Promise<AppData> {
+  const data = await loadData();
+  data.budgetingRule = rule;
+  await saveData(data);
+  return data;
 }
 
 export async function resetData(): Promise<AppData> {

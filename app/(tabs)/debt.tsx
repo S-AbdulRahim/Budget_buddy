@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums, withAlpha } from '../../src/theme';
 import { loadData, toggleDebtPayment } from '../../src/data/storage';
 import { AppData } from '../../src/types';
@@ -37,8 +38,17 @@ export default function DebtScreen() {
   };
 
   const handleTogglePayment = async (month: string) => {
+    const payment = data?.debtPayments.find(p => p.month === month);
+    const willBePaid = payment ? !payment.isPaid : false;
     const updated = await toggleDebtPayment(month);
     setData(updated);
+    if (willBePaid) {
+      try {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // Haptics unavailable on web or unconfigured devices
+      }
+    }
   };
 
   if (!data) {
@@ -213,9 +223,15 @@ export default function DebtScreen() {
                 ]}
                 onPress={() => handleTogglePayment(payment.month)}
                 disabled={payment.remainingBalance === 0}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  payment.isPaid || payment.remainingBalance === 0
+                    ? `Payment for ${payment.month} paid`
+                    : `Mark payment for ${payment.month} as paid`
+                }
               >
                 {(payment.isPaid || payment.remainingBalance === 0) && (
-                  <Ionicons name="checkmark" size={12} color={Colors.onPrimary} />
+                  <Ionicons name="checkmark" size={12} color={Colors.onSuccess} />
                 )}
               </TouchableOpacity>
               {index < data.debtPayments.length - 1 && <View style={styles.paymentLine} />}
@@ -239,6 +255,12 @@ export default function DebtScreen() {
                       payment.isPaid ? styles.paidBadgeActive : null
                     ]}
                     onPress={() => handleTogglePayment(payment.month)}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      payment.isPaid
+                        ? `Mark ${payment.month} as unpaid`
+                        : `Mark ${payment.month} as paid`
+                    }
                   >
                     <Ionicons
                       name={payment.isPaid ? "checkmark-circle" : "ellipse-outline"}

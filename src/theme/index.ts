@@ -12,10 +12,10 @@ export const Colors = {
   surfaceElevated: '#1A2035',
   surfaceHighlight: '#222842',
 
-  // Text — unchanged
+  // Text — refined textMuted contrast
   textPrimary: '#F0F2F8',
   textSecondary: '#8B92A8',
-  textMuted: '#5A6178',
+  textMuted: '#858CA3',
   onPrimary: '#FFFFFF',
   white: '#FFFFFF',
 
@@ -25,6 +25,7 @@ export const Colors = {
   primary: '#0F9B8E',
   primaryLight: '#4FD1C5',
   primaryDark: '#0A6E64',
+  primaryButton: '#0A766C', // Accessible solid CTA fill for white text (≥4.5:1 contrast)
 
   // 50/30/20 Category Groups
   groupNeeds: '#4FD1C5',
@@ -41,6 +42,7 @@ export const Colors = {
 
   // Status — mirrors the accent roles above
   success: '#3DBE7B',
+  onSuccess: '#0A0E1A', // Dark ink for icons/text placed on solid green success backgrounds (>10:1 contrast)
   warning: '#F2A93B',
   danger: '#E5555C',
   info: '#4FD1C5',

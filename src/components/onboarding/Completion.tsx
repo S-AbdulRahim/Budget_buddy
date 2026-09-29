@@ -8,6 +8,7 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import {
   Colors,
   Spacing,
@@ -18,6 +19,7 @@ import {
   formatCurrencyFull,
   withAlpha,
 } from '../../theme';
+import { BudgetingRule } from '../../types';
 import BrandMark from '../BrandMark';
 
 export interface CompletionProps {
@@ -32,6 +34,7 @@ export interface CompletionProps {
   onGoToDashboard: () => void;
   animValue: Animated.Value;
   contentWidth: number;
+  budgetingRule?: BudgetingRule;
 }
 
 export default function Completion({
@@ -46,15 +49,28 @@ export default function Completion({
   onGoToDashboard,
   animValue,
   contentWidth,
+  budgetingRule,
 }: CompletionProps) {
   const cardWidth = Math.max(280, Math.min(contentWidth - Spacing.xl * 2, 540));
 
-  // Compute 50/30/20 allocation percentages
+  // Trigger light haptic feedback on completion landing
+  React.useEffect(() => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      // Haptics no-op on web
+    }
+  }, []);
+
+  // Compute allocation percentages
   const safeSalary = salary > 0 ? salary : 1;
   const needsPct = Math.round((needsBudget / safeSalary) * 100);
   const wantsPct = Math.round((wantsBudget / safeSalary) * 100);
   const savingsPct = Math.round((savingsBudget / safeSalary) * 100);
   const unallocatedPct = Math.max(0, 100 - (needsPct + wantsPct + savingsPct));
+
+  const hasTargets = budgetingRule?.targets !== null && budgetingRule?.targets !== undefined;
+  const splitTitle = hasTargets ? `${budgetingRule!.label} Budget Split` : 'Budget Allocation Split';
 
   return (
     <ScrollView
@@ -91,10 +107,10 @@ export default function Completion({
           Your budget plan is configured and stored safely on your device.
         </Text>
 
-        {/* 50/30/20 Stacked Split Bar Card */}
+        {/* Stacked Split Bar Card */}
         <View style={styles.stackedBarCard}>
           <View style={styles.stackedBarHeader}>
-            <Text style={styles.stackedBarTitle}>50 / 30 / 20 Budget Split</Text>
+            <Text style={styles.stackedBarTitle}>{splitTitle}</Text>
             <Text style={styles.stackedBarSub}>
               {formatCurrencyFull(totalBudget)} of {formatCurrencyFull(salary)}
             </Text>
@@ -142,21 +158,27 @@ export default function Completion({
               <View style={[styles.legendDot, { backgroundColor: Colors.groupNeeds }]} />
               <View>
                 <Text style={styles.legendLabel}>Needs: {needsPct}%</Text>
-                <Text style={styles.legendTarget}>Guide: 50%</Text>
+                {hasTargets && (
+                  <Text style={styles.legendTarget}>Guide: {budgetingRule!.targets!.Needs}%</Text>
+                )}
               </View>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: Colors.groupWants }]} />
               <View>
                 <Text style={styles.legendLabel}>Wants: {wantsPct}%</Text>
-                <Text style={styles.legendTarget}>Guide: 30%</Text>
+                {hasTargets && (
+                  <Text style={styles.legendTarget}>Guide: {budgetingRule!.targets!.Wants}%</Text>
+                )}
               </View>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: Colors.groupSavings }]} />
               <View>
                 <Text style={styles.legendLabel}>Savings: {savingsPct}%</Text>
-                <Text style={styles.legendTarget}>Guide: 20%</Text>
+                {hasTargets && (
+                  <Text style={styles.legendTarget}>Guide: {budgetingRule!.targets!.Savings}%</Text>
+                )}
               </View>
             </View>
           </View>

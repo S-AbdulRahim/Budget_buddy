@@ -103,7 +103,12 @@ export default function InvestScreen() {
   }
 
   const totalSIP = data.investments.reduce((sum, inv) => sum + inv.monthlyAmount, 0);
-  const debtCleared = data.debtPayments.every(p => p.remainingBalance === 0 && p.isPaid);
+  const debtCleared = data.debtTotal === 0 || data.debtPayments.length === 0 || data.debtPayments.every(p => p.isPaid);
+  const interestRate = data.debtInterestRate ?? 0;
+  const hasInterestDebt = data.debtTotal > 0 && interestRate > 0;
+  // If debtInterestRate is 0 (or debt total is 0): investments are NEVER locked.
+  // If debtInterestRate > 0: locked unless debt is cleared OR user explicitly overrides it in Settings.
+  const isLocked = hasInterestDebt && !debtCleared && !data.overrideDebtLock;
 
   return (
     <ScrollView
@@ -119,16 +124,15 @@ export default function InvestScreen() {
       <Text style={styles.subtitle}>Monthly SIPs and savings goals</Text>
 
       {/* Lock Banner */}
-      {!debtCleared && (
+      {isLocked && (
         <View style={styles.lockBanner}>
           <View style={styles.lockIconWrap}>
             <Ionicons name="lock-closed" size={20} color={Colors.accentAmber} />
           </View>
           <View style={styles.lockContent}>
-            <Text style={styles.lockTitle}>Investments Locked</Text>
+            <Text style={styles.lockTitle}>Investments Paused — High-Interest Debt</Text>
             <Text style={styles.lockText}>
-              SIP investments will begin after your debt of {formatCurrencyFull(data.debtTotal)} is fully cleared. 
-              Stay focused on debt payoff first!
+              Your loan carries an interest rate of {interestRate}%. Paying off interest-bearing debt first eliminates finance charges and provides guaranteed savings. You can override and invest concurrently in Settings.
             </Text>
           </View>
         </View>
@@ -147,8 +151,10 @@ export default function InvestScreen() {
           </View>
         </View>
         <Text style={styles.sipNote}>
-          {data.debtTotal > 0 
-            ? `Post-debt allocation • ${data.investments.length} goals • Equal to EMI amount`
+          {data.debtTotal > 0 && !debtCleared
+            ? isLocked
+              ? `Allocations planned • Activates after clearing ${interestRate}% debt (or override in Settings)`
+              : `Concurrent allocation • Active alongside ${interestRate === 0 ? '0% interest ' : ''}debt payments`
             : `Active allocation • ${data.investments.length} goals`
           }
         </Text>
@@ -172,7 +178,7 @@ export default function InvestScreen() {
             const etaYears = (etaMonths / 12).toFixed(1);
 
             return (
-              <View key={fund.id} style={[styles.fundCard, !debtCleared && styles.fundCardLocked]}>
+              <View key={fund.id} style={[styles.fundCard, isLocked && styles.fundCardLocked]}>
                 <View style={styles.fundHeader}>
                   <View style={[styles.fundIconWrap, { backgroundColor: withAlpha(fund.color, 0.15) }]}>
                     <Ionicons
@@ -225,10 +231,12 @@ export default function InvestScreen() {
                 <View style={styles.fundStatus}>
                   <View style={[
                     styles.statusDot,
-                    { backgroundColor: debtCleared ? Colors.accentGreen : Colors.textMuted },
+                    { backgroundColor: !isLocked ? Colors.accentGreen : Colors.textMuted },
                   ]} />
                   <Text style={styles.statusText}>
-                    {debtCleared ? 'Active — Auto-debit enabled' : 'Pending — Starts after debt clearance'}
+                    {isLocked
+                      ? `Paused — Prioritizing ${interestRate}% interest debt payoff`
+                      : 'Active — Monthly allocation enabled'}
                   </Text>
                 </View>
               </View>
@@ -241,8 +249,10 @@ export default function InvestScreen() {
       <View style={styles.disclaimer}>
         <Ionicons name="information-circle" size={16} color={Colors.textMuted} />
         <Text style={styles.disclaimerText}>
-          Monthly goals and SIP investments are tracked and projected automatically. {data.debtTotal > 0 
-            ? `Investment amounts equal your current EMI (${formatCurrencyFull(data.debtEmi)}/month) — redirected automatically after debt payoff.`
+          Monthly goals and SIP investments are tracked and projected automatically. {data.debtTotal > 0 && !debtCleared
+            ? isLocked
+              ? `Investments are paused while clearing your ${interestRate}% interest debt to minimize interest loss. You can unlock them anytime in Settings.`
+              : `Your investments are active concurrently alongside your loan payments.`
             : 'Your investments and goals are active and planned monthly according to your configured allocations.'
           }
         </Text>

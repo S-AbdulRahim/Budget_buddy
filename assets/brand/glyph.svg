@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Wallet body (kept inside the 66% adaptive-icon safe zone: 87-425 on both axes) -->
+  <g fill="#FFFFFF">
+    <path d="M 146 176 C 146 158 160 144 178 144 L 344 144 C 362 144 376 158 376 176 L 376 336 C 376 354 362 368 344 368 L 178 368 C 160 368 146 354 146 336 Z" opacity="0.97" />
+    <path d="M 260 212 L 376 212 L 376 296 L 260 296 C 237 296 218 277 218 254 C 218 231 237 212 260 212 Z" fill="#EFF1F7" />
+    <circle cx="270" cy="254" r="13" fill="#0A6E64" />
+  </g>
+  <!-- Gold coin accent, repositioned to sit fully inside the safe zone -->
+  <circle cx="372" cy="140" r="34" fill="#C9A24E" stroke="#0A0E1A" stroke-width="9" />
+  <circle cx="372" cy="140" r="23" fill="none" stroke="#E5C778" stroke-width="3.5" stroke-dasharray="5,3.5" />
+  <circle cx="372" cy="140" r="11" fill="#E5C778" />
+</svg>
