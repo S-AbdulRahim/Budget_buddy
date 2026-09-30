@@ -199,6 +199,20 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     }));
   };
 
+  const handleChangeCategoryGroup = (id: string, group: CategoryGroup) => {
+    setCategoriesList(prev =>
+      prev.map(cat =>
+        cat.id === id
+          ? {
+              ...cat,
+              group,
+              color: group === 'Needs' ? Colors.groupNeeds : group === 'Wants' ? Colors.groupWants : Colors.groupSavings,
+            }
+          : cat
+      )
+    );
+  };
+
   const handleAddCategory = (group: CategoryGroup, name: string, budget: string) => {
     const newId = Date.now().toString();
     const newCategory: Category = {
@@ -564,6 +578,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
             categoryBudgets={categoryBudgets}
             onToggleCategory={handleToggleCategory}
             onChangeCategoryBudget={handleChangeCategoryBudget}
+            onChangeCategoryGroup={handleChangeCategoryGroup}
             onAddCategory={handleAddCategory}
             firstInputRef={firstCategoryInputRef}
             rule={budgetingRule}

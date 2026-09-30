@@ -19,6 +19,7 @@ import {
   withAlpha,
 } from '../../theme';
 import { Category, CategoryGroup, BudgetingRule } from '../../types';
+import CategoryRow from '../CategoryRow';
 
 export interface StepCategoriesProps {
   salary: number;
@@ -27,6 +28,7 @@ export interface StepCategoriesProps {
   categoryBudgets: Record<string, string>;
   onToggleCategory: (id: string) => void;
   onChangeCategoryBudget: (id: string, text: string) => void;
+  onChangeCategoryGroup?: (id: string, group: CategoryGroup) => void;
   onAddCategory: (group: CategoryGroup, name: string, budget: string) => void;
   firstInputRef?: React.RefObject<TextInput | null>;
   rule: BudgetingRule;
@@ -48,6 +50,7 @@ export default function StepCategories({
   categoryBudgets,
   onToggleCategory,
   onChangeCategoryBudget,
+  onChangeCategoryGroup,
   onAddCategory,
   firstInputRef,
   rule,
@@ -83,10 +86,16 @@ export default function StepCategories({
       description: 'Emergency reserve, investments & savings buffer',
     },
   ];
-  // Inline add category form state per group
+
+  // Inline add category form state per group (for grouped mode)
   const [activeAddGroup, setActiveAddGroup] = useState<CategoryGroup | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [newCatBudget, setNewCatBudget] = useState('');
+
+  // Inline add category state for flat mode ('none' rule)
+  const [isAddingFlatCategory, setIsAddingFlatCategory] = useState(false);
+  const [newFlatCatName, setNewFlatCatName] = useState('');
+  const [newFlatCatBudget, setNewFlatCatBudget] = useState('');
 
   const handleOpenAdd = (group: CategoryGroup) => {
     setActiveAddGroup(group);
@@ -102,6 +111,16 @@ export default function StepCategories({
     setActiveAddGroup(null);
     setNewCatName('');
     setNewCatBudget('');
+  };
+
+  const handleConfirmAddFlat = () => {
+    const cleanName = newFlatCatName.trim();
+    if (!cleanName) return;
+    const cleanBudget = newFlatCatBudget.replace(/[^0-9]/g, '') || '0';
+    onAddCategory('Needs', cleanName, cleanBudget);
+    setIsAddingFlatCategory(false);
+    setNewFlatCatName('');
+    setNewFlatCatBudget('');
   };
 
   // Calculate total allocated
@@ -123,7 +142,7 @@ export default function StepCategories({
       <Text style={styles.stepDescription}>
         {hasTargets
           ? `Group expenses by Needs (${targetNeeds}%), Wants (${targetWants}%), and Savings (${targetSavings}%). Adjust limits or add categories as needed.`
-          : 'Group your expenses by Needs, Wants, and Savings — set whatever limits make sense for you.'}
+          : 'Set spending limits for your categories that make sense for your lifestyle.'}
       </Text>
 
       {/* Salary vs Allocated Overview Bar */}
@@ -145,217 +164,247 @@ export default function StepCategories({
         </View>
       </View>
 
-      {/* 3 Group Sections: Needs, Wants, Savings */}
-      <View style={styles.groupsContainer}>
-        {GROUPS.map(group => {
-          const groupCategories = categoriesList.filter(
-            c => (c.group || 'Needs') === group.key
-          );
+      {/* Render: Grouped (when hasTargets is true) OR Flat list (when hasTargets is false) */}
+      {hasTargets ? (
+        <View style={styles.groupsContainer}>
+          {GROUPS.map(group => {
+            const groupCategories = categoriesList.filter(
+              c => (c.group || 'Needs') === group.key
+            );
 
-          const groupSubtotal = groupCategories.reduce((sum, cat) => {
-            if (!enabledCategories[cat.id]) return sum;
-            return sum + (parseFloat(categoryBudgets[cat.id]) || 0);
-          }, 0);
+            const groupSubtotal = groupCategories.reduce((sum, cat) => {
+              if (!enabledCategories[cat.id]) return sum;
+              return sum + (parseFloat(categoryBudgets[cat.id]) || 0);
+            }, 0);
 
-          const groupPercent = salary > 0 ? Math.round((groupSubtotal / salary) * 100) : 0;
-          const isOverGroupTarget = hasTargets && groupPercent > group.targetPercent;
-          const progressWidth = Math.min(100, groupPercent);
+            const groupPercent = salary > 0 ? Math.round((groupSubtotal / salary) * 100) : 0;
+            const isOverGroupTarget = groupPercent > group.targetPercent;
+            const progressWidth = Math.min(100, groupPercent);
 
-          return (
-            <View key={group.key} style={styles.groupCard}>
-              {/* Group Header */}
-              <View style={styles.groupHeader}>
-                <View style={styles.groupTitleRow}>
-                  <View style={[styles.groupIconCircle, { backgroundColor: withAlpha(group.color, 0.15) }]}>
-                    <Ionicons name={group.icon} size={18} color={group.color} />
-                  </View>
-                  <View>
-                    <View style={styles.groupNameAndTarget}>
-                      <Text style={styles.groupTitle}>{group.title}</Text>
-                      {hasTargets && (
+            return (
+              <View key={group.key} style={styles.groupCard}>
+                {/* Group Header */}
+                <View style={styles.groupHeader}>
+                  <View style={styles.groupTitleRow}>
+                    <View style={[styles.groupIconCircle, { backgroundColor: withAlpha(group.color, 0.15) }]}>
+                      <Ionicons name={group.icon} size={18} color={group.color} />
+                    </View>
+                    <View>
+                      <View style={styles.groupNameAndTarget}>
+                        <Text style={styles.groupTitle}>{group.title}</Text>
                         <View style={[styles.targetBadge, { borderColor: withAlpha(group.color, 0.4) }]}>
                           <Text style={[styles.targetBadgeText, { color: group.color }]}>
                             Target: {group.targetPercent}%
                           </Text>
                         </View>
-                      )}
+                      </View>
+                      <Text style={styles.groupDescription}>{group.description}</Text>
                     </View>
-                    <Text style={styles.groupDescription}>{group.description}</Text>
+                  </View>
+
+                  {/* Subtotal and % */}
+                  <View style={styles.groupSubtotalBox}>
+                    <Text style={styles.groupSubtotalAmount}>
+                      {formatCurrencyFull(groupSubtotal)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.groupSubtotalPercent,
+                        isOverGroupTarget ? { color: Colors.accentAmber } : { color: group.color },
+                      ]}
+                    >
+                      {groupPercent}% of income
+                    </Text>
                   </View>
                 </View>
 
-                {/* Subtotal and % */}
-                <View style={styles.groupSubtotalBox}>
-                  <Text style={styles.groupSubtotalAmount}>
-                    {formatCurrencyFull(groupSubtotal)}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.groupSubtotalPercent,
-                      isOverGroupTarget ? { color: Colors.accentAmber } : { color: group.color },
-                    ]}
-                  >
-                    {groupPercent}% of income
-                  </Text>
-                </View>
-              </View>
-
-              {/* Progress bar with target guide tick */}
-              <View style={styles.progressBarWrapper}>
-                <View style={styles.progressBarTrack}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      {
-                        width: `${progressWidth}%`,
-                        backgroundColor: group.color,
-                      },
-                    ]}
-                  />
-                  {/* Guideline Target Tick */}
-                  {hasTargets && (
+                {/* Progress bar with target guide tick */}
+                <View style={styles.progressBarWrapper}>
+                  <View style={styles.progressBarTrack}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        {
+                          width: `${progressWidth}%`,
+                          backgroundColor: group.color,
+                        },
+                      ]}
+                    />
                     <View
                       style={[
                         styles.targetTickLine,
                         { left: `${group.targetPercent}%` },
                       ]}
                     />
-                  )}
-                </View>
-                <View style={styles.progressBarMeta}>
-                  <Text style={styles.progressBarLabel}>0%</Text>
-                  {hasTargets && (
+                  </View>
+                  <View style={styles.progressBarMeta}>
+                    <Text style={styles.progressBarLabel}>0%</Text>
                     <Text style={[styles.progressBarLabel, { color: group.color }]}>
                       Guide: {group.targetPercent}%
                     </Text>
-                  )}
-                  <Text style={styles.progressBarLabel}>100%</Text>
-                </View>
-              </View>
-
-              {/* Categories in this group */}
-              <View style={styles.categoryList}>
-                {groupCategories.map((cat, catIdx) => {
-                  const isEnabled = enabledCategories[cat.id];
-                  const isFirstInput = group.key === 'Needs' && catIdx === 0;
-
-                  return (
-                    <View
-                      key={cat.id}
-                      style={[styles.categoryRow, !isEnabled && styles.categoryRowDisabled]}
-                    >
-                      <TouchableOpacity
-                        onPress={() => onToggleCategory(cat.id)}
-                        style={styles.categoryToggle}
-                        activeOpacity={0.7}
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: isEnabled }}
-                        accessibilityLabel={`${cat.name} category toggle`}
-                      >
-                        <View
-                          style={[
-                            styles.checkbox,
-                            isEnabled && {
-                              backgroundColor: group.color,
-                              borderColor: group.color,
-                            },
-                          ]}
-                        >
-                          {isEnabled && (
-                            <Ionicons name="checkmark" size={14} color={Colors.onPrimary} />
-                          )}
-                        </View>
-                        <Text
-                          style={[
-                            styles.categoryName,
-                            { color: isEnabled ? Colors.textPrimary : Colors.textSecondary },
-                          ]}
-                        >
-                          {cat.name}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {isEnabled ? (
-                        <View style={styles.budgetInputWrap}>
-                          <Text style={styles.budgetInputSymbol}>₹</Text>
-                          <TextInput
-                            ref={isFirstInput ? firstInputRef : undefined}
-                            key={`step-2-cat-${cat.id}`}
-                            style={styles.budgetInput}
-                            keyboardType="numeric"
-                            value={categoryBudgets[cat.id]}
-                            onChangeText={text => onChangeCategoryBudget(cat.id, text)}
-                            cursorColor={Colors.primaryLight}
-                            selectionColor={Colors.primary}
-                            accessibilityLabel={`${cat.name} budget amount in rupees`}
-                          />
-                        </View>
-                      ) : (
-                        <Text style={styles.disabledLabel}>Excluded</Text>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-
-              {/* Add Category per Group */}
-              {activeAddGroup === group.key ? (
-                <View style={styles.inlineAddCard}>
-                  <View style={styles.inlineAddHeader}>
-                    <Text style={styles.inlineAddTitle}>Add to {group.title}</Text>
-                    <TouchableOpacity onPress={() => setActiveAddGroup(null)}>
-                      <Ionicons name="close" size={18} color={Colors.textSecondary} />
-                    </TouchableOpacity>
+                    <Text style={styles.progressBarLabel}>100%</Text>
                   </View>
-                  <View style={styles.inlineAddFields}>
-                    <TextInput
-                      style={styles.inlineAddNameInput}
-                      placeholder="Category name"
-                      placeholderTextColor={Colors.textMuted}
-                      value={newCatName}
-                      onChangeText={setNewCatName}
-                      cursorColor={Colors.primaryLight}
-                      selectionColor={Colors.primary}
-                    />
-                    <View style={styles.inlineAddBudgetWrap}>
-                      <Text style={styles.budgetInputSymbol}>₹</Text>
+                </View>
+
+                {/* Categories in this group */}
+                <View style={styles.categoryList}>
+                  {groupCategories.map((cat, catIdx) => {
+                    const isFirstInput = group.key === 'Needs' && catIdx === 0;
+
+                    return (
+                      <CategoryRow
+                        key={cat.id}
+                        category={cat}
+                        budget={categoryBudgets[cat.id]}
+                        isEnabled={enabledCategories[cat.id]}
+                        onToggle={() => onToggleCategory(cat.id)}
+                        onChangeBudget={text => onChangeCategoryBudget(cat.id, text)}
+                        showGroupPicker={false}
+                        showCheckbox={true}
+                        inputRef={isFirstInput ? firstInputRef : undefined}
+                        isLast={catIdx === groupCategories.length - 1}
+                      />
+                    );
+                  })}
+                </View>
+
+                {/* Add Category per Group */}
+                {activeAddGroup === group.key ? (
+                  <View style={styles.inlineAddCard}>
+                    <View style={styles.inlineAddHeader}>
+                      <Text style={styles.inlineAddTitle}>Add to {group.title}</Text>
+                      <TouchableOpacity onPress={() => setActiveAddGroup(null)}>
+                        <Ionicons name="close" size={18} color={Colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.inlineAddFields}>
                       <TextInput
-                        style={styles.inlineAddBudgetInput}
-                        placeholder="Limit"
+                        style={styles.inlineAddNameInput}
+                        placeholder="Category name"
                         placeholderTextColor={Colors.textMuted}
-                        keyboardType="numeric"
-                        value={newCatBudget}
-                        onChangeText={text => setNewCatBudget(text.replace(/[^0-9]/g, ''))}
+                        value={newCatName}
+                        onChangeText={setNewCatName}
                         cursorColor={Colors.primaryLight}
                         selectionColor={Colors.primary}
                       />
+                      <View style={styles.inlineAddBudgetWrap}>
+                        <Text style={styles.budgetInputSymbol}>₹</Text>
+                        <TextInput
+                          style={styles.inlineAddBudgetInput}
+                          placeholder="Limit"
+                          placeholderTextColor={Colors.textMuted}
+                          keyboardType="numeric"
+                          value={newCatBudget}
+                          onChangeText={text => setNewCatBudget(text.replace(/[^0-9]/g, ''))}
+                          cursorColor={Colors.primaryLight}
+                          selectionColor={Colors.primary}
+                        />
+                      </View>
                     </View>
+                    <TouchableOpacity
+                      style={[styles.inlineAddConfirmBtn, { backgroundColor: group.color }]}
+                      onPress={() => handleConfirmAdd(group.key)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="add" size={16} color={Colors.onPrimary} />
+                      <Text style={styles.inlineAddConfirmBtnText}>Save category</Text>
+                    </TouchableOpacity>
                   </View>
+                ) : (
                   <TouchableOpacity
-                    style={[styles.inlineAddConfirmBtn, { backgroundColor: group.color }]}
-                    onPress={() => handleConfirmAdd(group.key)}
-                    activeOpacity={0.8}
+                    style={styles.addGroupBtn}
+                    onPress={() => handleOpenAdd(group.key)}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons name="add" size={16} color={Colors.onPrimary} />
-                    <Text style={styles.inlineAddConfirmBtnText}>Save category</Text>
+                    <Ionicons name="add-circle-outline" size={16} color={group.color} />
+                    <Text style={[styles.addGroupBtnText, { color: group.color }]}>
+                      Add category to {group.title}
+                    </Text>
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.addGroupBtn}
-                  onPress={() => handleOpenAdd(group.key)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="add-circle-outline" size={16} color={group.color} />
-                  <Text style={[styles.addGroupBtnText, { color: group.color }]}>
-                    Add category to {group.title}
-                  </Text>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        /* Flat unified list for 'none' rule */
+        <View style={styles.flatCard}>
+          <View style={styles.categoryList}>
+            {categoriesList.map((cat, catIdx) => (
+              <CategoryRow
+                key={cat.id}
+                category={cat}
+                budget={categoryBudgets[cat.id]}
+                isEnabled={enabledCategories[cat.id]}
+                onToggle={() => onToggleCategory(cat.id)}
+                onChangeBudget={text => onChangeCategoryBudget(cat.id, text)}
+                onChangeGroup={newGroup => onChangeCategoryGroup?.(cat.id, newGroup)}
+                showGroupPicker={true}
+                showCheckbox={true}
+                inputRef={catIdx === 0 ? firstInputRef : undefined}
+                isLast={catIdx === categoriesList.length - 1 && !isAddingFlatCategory}
+              />
+            ))}
+          </View>
+
+          {/* Inline Add Category for Flat List */}
+          {isAddingFlatCategory ? (
+            <View style={styles.inlineAddCard}>
+              <View style={styles.inlineAddHeader}>
+                <Text style={styles.inlineAddTitle}>Add Category</Text>
+                <TouchableOpacity onPress={() => setIsAddingFlatCategory(false)}>
+                  <Ionicons name="close" size={18} color={Colors.textSecondary} />
                 </TouchableOpacity>
-              )}
+              </View>
+              <View style={styles.inlineAddFields}>
+                <TextInput
+                  style={styles.inlineAddNameInput}
+                  placeholder="Category name"
+                  placeholderTextColor={Colors.textMuted}
+                  value={newFlatCatName}
+                  onChangeText={setNewFlatCatName}
+                  cursorColor={Colors.primaryLight}
+                  selectionColor={Colors.primary}
+                />
+                <View style={styles.inlineAddBudgetWrap}>
+                  <Text style={styles.budgetInputSymbol}>₹</Text>
+                  <TextInput
+                    style={styles.inlineAddBudgetInput}
+                    placeholder="Limit"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="numeric"
+                    value={newFlatCatBudget}
+                    onChangeText={text => setNewFlatCatBudget(text.replace(/[^0-9]/g, ''))}
+                    cursorColor={Colors.primaryLight}
+                    selectionColor={Colors.primary}
+                  />
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.inlineAddConfirmBtn, { backgroundColor: Colors.primaryButton }]}
+                onPress={handleConfirmAddFlat}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={16} color={Colors.onPrimary} />
+                <Text style={styles.inlineAddConfirmBtnText}>Save category</Text>
+              </TouchableOpacity>
             </View>
-          );
-        })}
-      </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.addCategoryFlatBtn}
+              onPress={() => {
+                setIsAddingFlatCategory(true);
+                setNewFlatCatName('');
+                setNewFlatCatBudget('');
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+              <Text style={styles.addCategoryFlatBtnText}>Add category</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Info Tip Card */}
       <View style={styles.tipCard}>
@@ -448,6 +497,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  flatCard: {
+    width: '100%',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  addCategoryFlatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  addCategoryFlatBtnText: {
+    ...Typography.bodyBold,
+    color: Colors.primary,
+  },
   groupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -539,64 +607,7 @@ const styles = StyleSheet.create({
   },
   categoryList: {
     width: '100%',
-    gap: Spacing.sm,
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: withAlpha(Colors.border, 0.6),
-  },
-  categoryRowDisabled: {
-    opacity: 0.45,
-  },
-  categoryToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    flex: 1,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surfaceHighlight,
-  },
-  categoryName: {
-    ...Typography.bodyBold,
-  },
-  budgetInputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceHighlight,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.sm,
-    width: 110,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  budgetInputSymbol: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    marginRight: 4,
-  },
-  budgetInput: {
-    ...Typography.body,
-    ...TabularNums,
-    color: Colors.textPrimary,
-    flex: 1,
-    paddingVertical: 6,
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
-  },
-  disabledLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
+    gap: Spacing.xs,
   },
   addGroupBtn: {
     flexDirection: 'row',
@@ -663,6 +674,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 0,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
+  },
+  budgetInputSymbol: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginRight: 4,
   },
   inlineAddConfirmBtn: {
     flexDirection: 'row',

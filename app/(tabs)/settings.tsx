@@ -18,6 +18,7 @@ import { AppData, Category, CategoryGroup, Investment, BudgetingRule } from '../
 import ConfirmModal from '../../src/components/ConfirmModal';
 import CalendarPickerModal, { getOrdinal } from '../../src/components/CalendarPickerModal';
 import BudgetingRulePicker from '../../src/components/BudgetingRulePicker';
+import CategoryRow from '../../src/components/CategoryRow';
 import { POPULAR_GOAL_PRESETS, GOAL_COLORS, GoalPreset, BUDGETING_RULES } from '../../src/data/budgetData';
 
 export default function SettingsScreen() {
@@ -269,6 +270,25 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleUpdateCategoryGroup = (id: string, group: CategoryGroup) => {
+    setCategories(prev =>
+      prev.map(cat =>
+        cat.id === id
+          ? {
+              ...cat,
+              group,
+              color:
+                group === 'Needs'
+                  ? Colors.groupNeeds
+                  : group === 'Wants'
+                  ? Colors.groupWants
+                  : Colors.groupSavings,
+            }
+          : cat
+      )
+    );
+  };
+
   const handleDeleteCategory = (id: string, name: string) => {
     setCategoryToDelete({ id, name });
   };
@@ -300,19 +320,22 @@ export default function SettingsScreen() {
       return;
     }
 
+    const hasTargets = budgetingRule?.targets !== null;
+    const assignedGroup = hasTargets ? newCatGroup : 'Needs';
+
     const newCategory: Category = {
       id: Date.now().toString(),
       name: cleanName,
       icon: 'ellipsis-horizontal-circle',
       color:
-        newCatGroup === 'Needs'
+        assignedGroup === 'Needs'
           ? Colors.groupNeeds
-          : newCatGroup === 'Wants'
+          : assignedGroup === 'Wants'
           ? Colors.groupWants
           : Colors.groupSavings,
       budget: budgetVal,
       spent: 0,
-      group: newCatGroup,
+      group: assignedGroup,
     };
 
     setCategories(prev => [...prev, newCategory]);
@@ -470,19 +493,6 @@ export default function SettingsScreen() {
 
         {/* Categories Budgets */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderTitleGroup}>
-              <Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />
-              <Text style={styles.sectionTitle}>Budgets & Categories</Text>
-            </View>
-            <Text style={[
-              styles.overviewBudget,
-              totalAllocatedBudget > parseFloat(salary) ? { color: Colors.accentRed } : { color: Colors.accentGreen }
-            ]}>
-              Total Allocated: ₹{totalAllocatedBudget.toLocaleString()}
-            </Text>
-          </View>
-
           {(() => {
             const hasTargets = budgetingRule?.targets !== null;
             const groups = [
@@ -506,139 +516,156 @@ export default function SettingsScreen() {
               },
             ];
 
-            return groups.map(group => {
-              const groupCats = categories.filter(c => (c.group || 'Needs') === group.key);
-              const groupSubtotal = groupCats.reduce((sum, c) => sum + c.budget, 0);
-              const parsedSal = parseFloat(salary) || 1;
-              const groupPct = Math.round((groupSubtotal / parsedSal) * 100);
-
-              return (
-                <View key={group.key} style={[styles.card, { marginBottom: Spacing.md }]}>
-                  <View style={styles.groupSubHeader}>
-                    <View style={styles.groupSubTitleRow}>
-                      <Ionicons name={group.icon} size={16} color={group.color} />
-                      <Text style={[styles.groupSubTitle, { color: group.color }]}>{group.title}</Text>
-                    </View>
-                    <Text style={styles.groupSubAmount}>
-                      {formatCurrencyFull(groupSubtotal)} ({groupPct}%)
-                    </Text>
+            return (
+              <>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionHeaderTitleGroup}>
+                    <Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />
+                    <Text style={styles.sectionTitle}>Budgets & Categories</Text>
                   </View>
+                  <Text style={[
+                    styles.overviewBudget,
+                    totalAllocatedBudget > parseFloat(salary) ? { color: Colors.accentRed } : { color: Colors.accentGreen }
+                  ]}>
+                    Total Allocated: ₹{totalAllocatedBudget.toLocaleString()}
+                  </Text>
+                </View>
 
-                  {groupCats.length === 0 ? (
-                    <Text style={styles.emptyGroupText}>No categories in this group.</Text>
-                  ) : (
-                    groupCats.map((cat, index) => (
-                      <View
-                        key={cat.id}
-                        style={[
-                          styles.categoryRow,
-                          index === groupCats.length - 1 && styles.categoryRowLast,
-                        ]}
-                      >
-                        <View style={styles.categoryInfo}>
-                          <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
-                          <Text style={styles.categoryName}>{cat.name}</Text>
-                        </View>
-                        
-                        <View style={styles.categoryRowRight}>
-                          <View style={styles.smallInputWrap}>
-                            <Text style={styles.smallInputSymbol}>₹</Text>
-                            <TextInput
-                              style={styles.smallTextInput}
-                              keyboardType="numeric"
-                              value={cat.budget.toString()}
-                              onChangeText={text => handleUpdateCategoryBudget(cat.id, text)}
-                              cursorColor={Colors.primaryLight}
-                              selectionColor={Colors.primary}
-                            />
+                {hasTargets ? (
+                  groups.map(group => {
+                    const groupCats = categories.filter(c => (c.group || 'Needs') === group.key);
+                    const groupSubtotal = groupCats.reduce((sum, c) => sum + c.budget, 0);
+                    const parsedSal = parseFloat(salary) || 1;
+                    const groupPct = Math.round((groupSubtotal / parsedSal) * 100);
+
+                    return (
+                      <View key={group.key} style={[styles.card, { marginBottom: Spacing.md }]}>
+                        <View style={styles.groupSubHeader}>
+                          <View style={styles.groupSubTitleRow}>
+                            <Ionicons name={group.icon} size={16} color={group.color} />
+                            <Text style={[styles.groupSubTitle, { color: group.color }]}>{group.title}</Text>
                           </View>
-                          <TouchableOpacity
-                            style={styles.deleteCatButton}
-                            onPress={() => handleDeleteCategory(cat.id, cat.name)}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Delete ${cat.name}`}
-                          >
-                            <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-                          </TouchableOpacity>
+                          <Text style={styles.groupSubAmount}>
+                            {formatCurrencyFull(groupSubtotal)} ({groupPct}%)
+                          </Text>
                         </View>
+
+                        {groupCats.length === 0 ? (
+                          <Text style={styles.emptyGroupText}>No categories in this group.</Text>
+                        ) : (
+                          groupCats.map((cat, index) => (
+                            <CategoryRow
+                              key={cat.id}
+                              category={cat}
+                              budget={cat.budget}
+                              onChangeBudget={text => handleUpdateCategoryBudget(cat.id, text)}
+                              onDelete={() => handleDeleteCategory(cat.id, cat.name)}
+                              showColorDot={true}
+                              showGroupPicker={false}
+                              isLast={index === groupCats.length - 1}
+                            />
+                          ))
+                        )}
                       </View>
-                    ))
-                  )}
+                    );
+                  })
+                ) : (
+                  <View style={[styles.card, { marginBottom: Spacing.md }]}>
+                    {categories.length === 0 ? (
+                      <Text style={styles.emptyGroupText}>No categories configured.</Text>
+                    ) : (
+                      categories.map((cat, index) => (
+                        <CategoryRow
+                          key={cat.id}
+                          category={cat}
+                          budget={cat.budget}
+                          onChangeBudget={text => handleUpdateCategoryBudget(cat.id, text)}
+                          onChangeGroup={newGroup => handleUpdateCategoryGroup(cat.id, newGroup)}
+                          onDelete={() => handleDeleteCategory(cat.id, cat.name)}
+                          showColorDot={true}
+                          showGroupPicker={true}
+                          isLast={index === categories.length - 1}
+                        />
+                      ))
+                    )}
+                  </View>
+                )}
+
+                {/* Add Custom Category */}
+                <View style={styles.card}>
+                  <View style={styles.addCategoryForm}>
+                    <Text style={styles.addCategoryTitle}>Add Custom Category</Text>
+
+                    {/* Group Selector Chips (only shown when hasTargets is true) */}
+                    {hasTargets && (
+                      <View style={styles.groupSelectorRow}>
+                        {(['Needs', 'Wants', 'Savings'] as CategoryGroup[]).map(g => (
+                          <TouchableOpacity
+                            key={g}
+                            style={[
+                              styles.groupSelectorChip,
+                              newCatGroup === g && {
+                                backgroundColor: withAlpha(
+                                  g === 'Needs' ? Colors.groupNeeds : g === 'Wants' ? Colors.groupWants : Colors.groupSavings,
+                                  0.2
+                                ),
+                                borderColor: g === 'Needs' ? Colors.groupNeeds : g === 'Wants' ? Colors.groupWants : Colors.groupSavings,
+                              },
+                            ]}
+                            onPress={() => setNewCatGroup(g)}
+                          >
+                            <Text
+                              style={[
+                                styles.groupSelectorChipText,
+                                newCatGroup === g && {
+                                  color: g === 'Needs' ? Colors.groupNeeds : g === 'Wants' ? Colors.groupWants : Colors.groupSavings,
+                                },
+                              ]}
+                            >
+                              {g}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    <View style={styles.addCategoryRow}>
+                      <TextInput
+                        style={[styles.addCategoryInput, { flex: 1.5 }]}
+                        placeholder="Category Name (e.g. Charity)"
+                        placeholderTextColor={Colors.textMuted}
+                        value={newCatName}
+                        onChangeText={setNewCatName}
+                        cursorColor={Colors.primaryLight}
+                        selectionColor={Colors.primary}
+                      />
+                      <View style={[styles.smallInputWrap, { flex: 1, height: 40 }]}>
+                        <Text style={styles.smallInputSymbol}>₹</Text>
+                        <TextInput
+                          style={styles.smallTextInput}
+                          placeholder="Budget"
+                          placeholderTextColor={Colors.textMuted}
+                          keyboardType="numeric"
+                          value={newCatBudget}
+                          onChangeText={text => setNewCatBudget(text.replace(/[^0-9]/g, ''))}
+                          cursorColor={Colors.primaryLight}
+                          selectionColor={Colors.primary}
+                        />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.addCatButton}
+                        onPress={handleAddCategory}
+                        accessibilityRole="button"
+                        accessibilityLabel="Add category"
+                      >
+                        <Ionicons name="add" size={20} color={Colors.onPrimary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
-              );
-            });
+              </>
+            );
           })()}
-
-          {/* Add Custom Category */}
-          <View style={styles.card}>
-            <View style={styles.addCategoryForm}>
-              <Text style={styles.addCategoryTitle}>Add Custom Category</Text>
-
-              {/* Group Selector Chips */}
-              <View style={styles.groupSelectorRow}>
-                {(['Needs', 'Wants', 'Savings'] as CategoryGroup[]).map(g => (
-                  <TouchableOpacity
-                    key={g}
-                    style={[
-                      styles.groupSelectorChip,
-                      newCatGroup === g && {
-                        backgroundColor: withAlpha(
-                          g === 'Needs' ? Colors.groupNeeds : g === 'Wants' ? Colors.groupWants : Colors.groupSavings,
-                          0.2
-                        ),
-                        borderColor: g === 'Needs' ? Colors.groupNeeds : g === 'Wants' ? Colors.groupWants : Colors.groupSavings,
-                      },
-                    ]}
-                    onPress={() => setNewCatGroup(g)}
-                  >
-                    <Text
-                      style={[
-                        styles.groupSelectorChipText,
-                        newCatGroup === g && {
-                          color: g === 'Needs' ? Colors.groupNeeds : g === 'Wants' ? Colors.groupWants : Colors.groupSavings,
-                        },
-                      ]}
-                    >
-                      {g}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={styles.addCategoryRow}>
-                <TextInput
-                  style={[styles.addCategoryInput, { flex: 1.5 }]}
-                  placeholder="Category Name (e.g. Charity)"
-                  placeholderTextColor={Colors.textMuted}
-                  value={newCatName}
-                  onChangeText={setNewCatName}
-                  cursorColor={Colors.primaryLight}
-                  selectionColor={Colors.primary}
-                />
-                <View style={[styles.smallInputWrap, { flex: 1, height: 40 }]}>
-                  <Text style={styles.smallInputSymbol}>₹</Text>
-                  <TextInput
-                    style={styles.smallTextInput}
-                    placeholder="Budget"
-                    placeholderTextColor={Colors.textMuted}
-                    keyboardType="numeric"
-                    value={newCatBudget}
-                    onChangeText={text => setNewCatBudget(text.replace(/[^0-9]/g, ''))}
-                    cursorColor={Colors.primaryLight}
-                    selectionColor={Colors.primary}
-                  />
-                </View>
-                <TouchableOpacity
-                  style={styles.addCatButton}
-                  onPress={handleAddCategory}
-                  accessibilityRole="button"
-                  accessibilityLabel="Add category"
-                >
-                  <Ionicons name="add" size={20} color={Colors.onPrimary} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
         </View>
 
         {/* Debt paydown Settings */}
