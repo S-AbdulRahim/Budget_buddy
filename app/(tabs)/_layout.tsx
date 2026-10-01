@@ -34,20 +34,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="debt"
+        name="cards"
         options={{
-          title: 'Debt',
+          title: 'Cards',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trending-down" size={22} color={color} />
+            <Ionicons name="card" size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="invest"
+        name="plan"
         options={{
-          title: 'Invest',
+          title: 'Plan',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="leaf" size={22} color={color} />
+            <Ionicons name="trending-down" size={22} color={color} />
           ),
         }}
       />

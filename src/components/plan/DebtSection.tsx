@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -7,41 +7,34 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums, withAlpha } from '../../src/theme';
-import { loadData, toggleDebtPayment } from '../../src/data/storage';
-import { AppData } from '../../src/types';
-import ChartBar from '../../src/components/ChartBar';
-import { getOrdinal } from '../../src/components/CalendarPickerModal';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums, withAlpha } from '../../theme';
+import { toggleDebtPayment } from '../../data/storage';
+import { AppData } from '../../types';
+import ChartBar from '../ChartBar';
+import { getOrdinal } from '../CalendarPickerModal';
 
-export default function DebtScreen() {
-  const [data, setData] = useState<AppData | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+interface DebtSectionProps {
+  data: AppData;
+  refreshing: boolean;
+  onRefresh: () => Promise<void>;
+  onDataUpdated?: (updated: AppData) => void;
+}
 
-  const fetchData = useCallback(async () => {
-    const loaded = await loadData();
-    setData(loaded);
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [fetchData])
-  );
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
-  };
-
+export default function DebtSection({
+  data,
+  refreshing,
+  onRefresh,
+  onDataUpdated,
+}: DebtSectionProps) {
   const handleTogglePayment = async (month: string) => {
-    const payment = data?.debtPayments.find(p => p.month === month);
+    const payment = data.debtPayments.find(p => p.month === month);
     const willBePaid = payment ? !payment.isPaid : false;
     const updated = await toggleDebtPayment(month);
-    setData(updated);
+    if (onDataUpdated) {
+      onDataUpdated(updated);
+    }
     if (willBePaid) {
       try {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -50,15 +43,6 @@ export default function DebtScreen() {
       }
     }
   };
-
-  if (!data) {
-    return (
-      <View style={styles.loading}>
-        <Ionicons name="trending-down" size={48} color={Colors.primary} />
-        <Text style={styles.loadingText}>Loading debt tracker...</Text>
-      </View>
-    );
-  }
 
   if (data.debtTotal === 0) {
     return (
@@ -69,9 +53,6 @@ export default function DebtScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
       >
-        <Text style={styles.title}>Debt Payoff</Text>
-        <Text style={styles.subtitle}>Track your journey to debt freedom</Text>
-        
         <View style={styles.emptyDebtCard}>
           <Ionicons name="gift-outline" size={64} color={Colors.accentGreen} />
           <Text style={styles.emptyDebtTitle}>You are debt-free!</Text>
@@ -98,10 +79,6 @@ export default function DebtScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
       }
     >
-      {/* Header */}
-      <Text style={styles.title}>Debt Payoff</Text>
-      <Text style={styles.subtitle}>Track your journey to debt freedom</Text>
-
       {/* Summary Card */}
       <View style={styles.summaryCard}>
         <View style={styles.summaryRow}>
@@ -309,29 +286,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
-    padding: Spacing.xl,
-    paddingTop: Spacing.huge + Spacing.md,
-  },
-  loading: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.md,
-  },
-  loadingText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-  },
-  title: {
-    ...Typography.hero,
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.xxl,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.huge,
   },
   summaryCard: {
     backgroundColor: Colors.surfaceElevated,

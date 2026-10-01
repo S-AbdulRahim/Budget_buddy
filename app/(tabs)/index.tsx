@@ -7,21 +7,20 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrency, TabularNums, withAlpha } from '../../src/theme';
-import { loadData, confirmCardTransaction, dismissCardTransaction } from '../../src/data/storage';
+import { loadData } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import StatCard from '../../src/components/StatCard';
 import ProgressBar from '../../src/components/ProgressBar';
 import OnboardingWizard from '../../src/components/OnboardingWizard';
-import PendingTransactionsModal from '../../src/components/PendingTransactionsModal';
 import { setupLiveSmsListener } from '../../src/data/smsService';
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const [data, setData] = useState<AppData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [showPendingModal, setShowPendingModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     const loaded = await loadData();
@@ -124,7 +123,7 @@ export default function DashboardScreen() {
       {pendingTransactions.length > 0 && (
         <TouchableOpacity
           style={styles.pendingBanner}
-          onPress={() => setShowPendingModal(true)}
+          onPress={() => router.push('/(tabs)/cards?review=true')}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel={`Review ${pendingTransactions.length} pending card transactions`}
@@ -202,23 +201,6 @@ export default function DashboardScreen() {
       </View>
 
       <View style={{ height: Spacing.xxxl }} />
-
-      {/* Pending Transactions Modal */}
-      <PendingTransactionsModal
-        visible={showPendingModal}
-        transactions={pendingTransactions}
-        cards={data.creditCards || []}
-        categories={data.categories}
-        onConfirm={async (id, details) => {
-          await confirmCardTransaction(id, details);
-          await fetchData();
-        }}
-        onDismiss={async id => {
-          await dismissCardTransaction(id);
-          await fetchData();
-        }}
-        onClose={() => setShowPendingModal(false)}
-      />
     </ScrollView>
   );
 }

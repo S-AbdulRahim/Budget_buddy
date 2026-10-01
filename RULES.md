@@ -57,7 +57,11 @@ can't be recolored to match theme state, and don't scale cleanly with
 | Savings goals & targets   | `flag-outline`             |
 | Budgeting framework / rule| `compass-outline`          |
 | Quick override / flash    | `flash-outline`            |
-| Credit cards & spends     | `card-outline`             |
+| Credit cards & spends     | `card-outline` / `card`    |
+| Plan tab                  | `trending-down`            |
+| Dashboard tab             | `grid`                     |
+| Expenses tab              | `receipt`                  |
+| Annual tab                | `calendar`                 |
 
 If a new section needs an icon not listed here, add it to this table in the
 same commit — this table is the single source of truth for icon choices,
@@ -231,6 +235,25 @@ to the theme file rather than inlining a one-off value.
   etc.) for this app's current scope — local component state plus the
   `storage.ts` persistence layer is the deliberate architecture. Revisit
   only if a genuine cross-screen real-time sync need emerges.
+
+### Navigation & screen architecture
+- **Bottom tab navigation** in `app/(tabs)/_layout.tsx` contains strictly 6 tabs in this exact order:
+  1. `Dashboard` (`index.tsx`, icon: `grid`)
+  2. `Expenses` (`expenses.tsx`, icon: `receipt`)
+  3. `Cards` (`cards.tsx`, icon: `card`) — Dedicated credit card manager, automated SMS spend sync, and pending review.
+  4. `Plan` (`plan.tsx`, icon: `trending-down`) — Unified financial roadmap merging Debt payoff and Investment goals.
+  5. `Annual` (`annual.tsx`, icon: `calendar`)
+  6. `Settings` (`settings.tsx`, icon: `settings`) — App preferences, budgeting framework, database reset.
+- **Plan Tab Architecture:**
+  - `app/(tabs)/plan.tsx` hosts a top segmented pill control (`Debt` vs `Invest`).
+  - Section contents are decoupled into `src/components/plan/DebtSection.tsx` and `src/components/plan/InvestSection.tsx`.
+  - Default segment is `Debt` unless `debtTotal === 0`, in which case it defaults to `Invest`.
+  - In `InvestSection`, the debt lock banner provides an immediate CTA ("View Debt Payoff Plan") switching segments via `onSwitchToDebt`.
+- **Credit Cards Architecture:**
+  - Credit cards are managed directly in `app/(tabs)/cards.tsx`.
+  - `app/(tabs)/settings.tsx` provides a clean navigation row (`/(tabs)/cards`) rather than inline card management.
+  - Dashboard pending spends banner routes directly to `/(tabs)/cards?review=true` to initiate review without UI friction.
+- **No Orphaned Routes:** Expo Router registers every file in `app/(tabs)/` as a route. Deprecated screen files (e.g. `debt.tsx` or `invest.tsx`) must never be left in `app/(tabs)/`.
 
 ### Budget architecture & framework rules
 - All budget split frameworks are defined in `BUDGETING_RULES` in

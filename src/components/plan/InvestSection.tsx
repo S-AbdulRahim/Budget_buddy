@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,18 @@ import {
   ScrollView,
   RefreshControl,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums, withAlpha } from '../../src/theme';
-import { loadData } from '../../src/data/storage';
-import { AppData } from '../../src/types';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull, TabularNums, withAlpha } from '../../theme';
+import { AppData } from '../../types';
+
+interface InvestSectionProps {
+  data: AppData;
+  refreshing: boolean;
+  onRefresh: () => Promise<void>;
+  onSwitchToDebt?: () => void;
+}
 
 function AllocationBar({ value, maxValue, color }: { value: number; maxValue: number; color: string }) {
   const width = useRef(new Animated.Value(0)).current;
@@ -72,36 +78,12 @@ function getGoalIcon(fund: { name: string; type?: string; icon?: string }): any 
   return 'flag';
 }
 
-export default function InvestScreen() {
-  const [data, setData] = useState<AppData | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const fetchData = useCallback(async () => {
-    const loaded = await loadData();
-    setData(loaded);
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [fetchData])
-  );
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
-  };
-
-  if (!data) {
-    return (
-      <View style={styles.loading}>
-        <Ionicons name="leaf" size={48} color={Colors.primary} />
-        <Text style={styles.loadingText}>Loading investments...</Text>
-      </View>
-    );
-  }
-
+export default function InvestSection({
+  data,
+  refreshing,
+  onRefresh,
+  onSwitchToDebt,
+}: InvestSectionProps) {
   const totalSIP = data.investments.reduce((sum, inv) => sum + inv.monthlyAmount, 0);
   const debtCleared = data.debtTotal === 0 || data.debtPayments.length === 0 || data.debtPayments.every(p => p.isPaid);
   const interestRate = data.debtInterestRate ?? 0;
@@ -119,10 +101,6 @@ export default function InvestScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
       }
     >
-      {/* Header */}
-      <Text style={styles.title}>Investments & Goals</Text>
-      <Text style={styles.subtitle}>Monthly SIPs and savings goals</Text>
-
       {/* Lock Banner */}
       {isLocked && (
         <View style={styles.lockBanner}>
@@ -134,6 +112,18 @@ export default function InvestScreen() {
             <Text style={styles.lockText}>
               Your loan carries an interest rate of {interestRate}%. Paying off interest-bearing debt first eliminates finance charges and provides guaranteed savings. You can override and invest concurrently in Settings.
             </Text>
+            {onSwitchToDebt && (
+              <TouchableOpacity
+                style={styles.lockActionBtn}
+                onPress={onSwitchToDebt}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Switch to Debt payoff plan"
+              >
+                <Text style={styles.lockActionText}>View Debt Payoff Plan</Text>
+                <Ionicons name="arrow-forward" size={14} color={Colors.accentAmber} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -269,29 +259,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
-    padding: Spacing.xl,
-    paddingTop: Spacing.huge + Spacing.md,
-  },
-  loading: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.md,
-  },
-  loadingText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-  },
-  title: {
-    ...Typography.hero,
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.xxl,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.huge,
   },
   lockBanner: {
     flexDirection: 'row',
@@ -323,6 +293,22 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textSecondary,
     lineHeight: 18,
+  },
+  lockActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    alignSelf: 'flex-start',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: withAlpha(Colors.accentAmber, 0.15),
+    borderRadius: BorderRadius.sm,
+  },
+  lockActionText: {
+    ...Typography.caption,
+    fontFamily: Typography.bodyBold.fontFamily,
+    color: Colors.accentAmber,
   },
   sipCard: {
     backgroundColor: Colors.surfaceElevated,
