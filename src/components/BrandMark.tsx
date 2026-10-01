@@ -56,7 +56,7 @@ export default function BrandMark({
         style,
       ]}
       accessibilityRole="header"
-      accessibilityLabel="Budget Buddy Brand"
+      accessibilityLabel="FinCompass Brand"
     >
       {/* Logomark */}
       <View style={[styles.markWrapper, { width: config.markSize, height: config.markSize }]}>
@@ -74,7 +74,7 @@ export default function BrandMark({
           ]}
         >
           <Ionicons
-            name="wallet"
+            name="compass"
             size={config.iconSize}
             color={Colors.onPrimary}
           />
@@ -98,8 +98,8 @@ export default function BrandMark({
       {/* Wordmark */}
       {showWordmark && (
         <View style={styles.wordmarkRow}>
-          <Text style={[config.textStyle, styles.wordBudget]}>Budget </Text>
-          <Text style={[config.textStyle, styles.wordBuddy]}>Buddy</Text>
+          <Text style={[config.textStyle, styles.wordFin]}>Fin</Text>
+          <Text style={[config.textStyle, styles.wordCompass]}>Compass</Text>
         </View>
       )}
     </View>
@@ -135,10 +135,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  wordBudget: {
+  wordFin: {
     color: Colors.textPrimary,
   },
-  wordBuddy: {
+  wordCompass: {
     color: Colors.primaryLight,
   },
 });

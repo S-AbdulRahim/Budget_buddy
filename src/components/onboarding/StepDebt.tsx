@@ -19,6 +19,8 @@ import {
   withAlpha,
 } from '../../theme';
 import { getOrdinal } from '../CalendarPickerModal';
+import { generateDebtSchedule } from '../../data/budgetData';
+import InsightCard from '../InsightCard';
 
 export interface StepDebtProps {
   hasDebt: boolean;
@@ -265,13 +267,37 @@ export default function StepDebt({
         </View>
       )}
 
-      {/* Info Tip Card */}
-      <View style={styles.tipCard}>
-        <Ionicons name="bulb-outline" size={20} color={Colors.accent} />
-        <Text style={styles.tipText}>
-          Skip this if you're debt-free. You can add a loan later in Settings.
-        </Text>
-      </View>
+      {/* Personalized Debt Insight */}
+      {(() => {
+        const total = parseFloat(debtTotal) || 0;
+        const emi = parseFloat(debtEmi) || 0;
+        const interest = parseFloat(debtInterest) || 0;
+        const cibilSubtext =
+          'Fun fact: On-time payments make up ~35% of a CIBIL credit score — consistency matters more than paying large sums randomly.';
+
+        if (hasDebt && total > 0 && emi > 0) {
+          const schedule = generateDebtSchedule(total, emi, debtStartMonth, interest);
+          const y = schedule.length;
+          const payoffMonth = schedule.length > 0 ? schedule[schedule.length - 1].month : '';
+          return (
+            <InsightCard
+              icon="checkmark-done-circle-outline"
+              text={`At ${formatCurrencyFull(emi)}/month, you will be debt-free in ${y} months${payoffMonth ? ` (by ${payoffMonth})` : ''}. Every payment brings you closer to zero.`}
+              subtext={cibilSubtext}
+              style={{ marginTop: Spacing.xl }}
+            />
+          );
+        }
+
+        return (
+          <InsightCard
+            icon="shield-checkmark-outline"
+            text="Starting debt-free is a massive head start. Your entire surplus can go straight into building wealth."
+            subtext={cibilSubtext}
+            style={{ marginTop: Spacing.xl }}
+          />
+        );
+      })()}
     </View>
   );
 }
@@ -479,23 +505,5 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     fontFamily: Typography.bodyBold.fontFamily,
     ...TabularNums,
-  },
-  tipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: withAlpha(Colors.accent, 0.1),
-    borderWidth: 1,
-    borderColor: withAlpha(Colors.accent, 0.25),
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    width: '100%',
-    marginTop: Spacing.xxl,
-  },
-  tipText: {
-    ...Typography.caption,
-    color: Colors.accent,
-    flex: 1,
-    lineHeight: 18,
   },
 });

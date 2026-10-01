@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Budget Buddy",
-    "slug": "budget-buddy",
+    "name": "FinCompass",
+    "slug": "fincompass",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "budgetbuddy",
+    "scheme": "fincompass",
     "ios": {
       "supportsTablet": true
     },
@@ -17,8 +17,13 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.anonymous.budgetbuddy"
+      "package": "com.anonymous.budgetbuddy",
+      "permissions": [
+        "android.permission.READ_SMS",
+        "android.permission.RECEIVE_SMS"
+      ]
     },
+
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"

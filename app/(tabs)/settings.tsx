@@ -13,15 +13,33 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums, withAlpha, formatCurrencyFull } from '../../src/theme';
-import { loadData, updateSettings, resetData, setBudgetingRule, setDebtLockOverride } from '../../src/data/storage';
-import { AppData, Category, CategoryGroup, Investment, BudgetingRule } from '../../src/types';
+import {
+  loadData,
+  updateSettings,
+  resetData,
+  setBudgetingRule,
+  setDebtLockOverride,
+  addCreditCard,
+  updateCreditCard,
+  deleteCreditCard,
+  confirmCardTransaction,
+  dismissCardTransaction,
+  addManualCardTransaction,
+} from '../../src/data/storage';
+import { AppData, Category, CategoryGroup, Investment, BudgetingRule, CreditCard, CardTransaction } from '../../src/types';
 import ConfirmModal from '../../src/components/ConfirmModal';
 import CalendarPickerModal, { getOrdinal } from '../../src/components/CalendarPickerModal';
 import BudgetingRulePicker from '../../src/components/BudgetingRulePicker';
 import CategoryRow from '../../src/components/CategoryRow';
-import { POPULAR_GOAL_PRESETS, GOAL_COLORS, GoalPreset, BUDGETING_RULES } from '../../src/data/budgetData';
+import SmsConsentModal from '../../src/components/SmsConsentModal';
+import AddCreditCardModal from '../../src/components/AddCreditCardModal';
+import PendingTransactionsModal from '../../src/components/PendingTransactionsModal';
+import AddCardExpenseModal from '../../src/components/AddCardExpenseModal';
+import { checkSmsPermissions, requestSmsPermissions, syncHistoricalSms } from '../../src/data/smsService';
+import { POPULAR_GOAL_PRESETS, GOAL_COLORS, GoalPreset, BUDGETING_RULES, distributeGroupBudget } from '../../src/data/budgetData';
 
 export default function SettingsScreen() {
+
   const router = useRouter();
   const [data, setData] = useState<AppData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,6 +98,52 @@ export default function SettingsScreen() {
   const [budgetingRule, setBudgetingRuleState] = useState<BudgetingRule>(BUDGETING_RULES[1]);
   const [overrideDebtLock, setOverrideDebtLock] = useState(false);
   const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
+  const [touchedCategoryIds, setTouchedCategoryIds] = useState<Set<string>>(new Set());
+
+  // Credit Cards states
+  const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
+  const [pendingTransactions, setPendingTransactions] = useState<CardTransaction[]>([]);
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
+  const [cardToEdit, setCardToEdit] = useState<CreditCard | null>(null);
+  const [cardToDelete, setCardToDelete] = useState<CreditCard | null>(null);
+  const [showSmsConsentModal, setShowSmsConsentModal] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [showAddManualExpenseModal, setShowAddManualExpenseModal] = useState(false);
+  const [hasSmsPermission, setHasSmsPermission] = useState(false);
+  const [syncingSms, setSyncingSms] = useState(false);
+
+  const handleAutoDistributeBudgets = (
+    rule: BudgetingRule = budgetingRule,
+    salaryStr: string = salary,
+    forceAll: boolean = false
+  ) => {
+    const parsedSal = parseFloat(salaryStr) || 0;
+    if (!rule.targets || parsedSal <= 0) return;
+    const groups: CategoryGroup[] = ['Needs', 'Wants', 'Savings'];
+    setCategories(prev => {
+      let res = [...prev];
+      groups.forEach(grp => {
+        const targetPct = rule.targets?.[grp] ?? 0;
+        const grpTarget = (parsedSal * targetPct) / 100;
+        const grpCats = res.filter(c => (c.group || 'Needs') === grp);
+        const catNames = grpCats.map(c => c.name);
+        const distributed = distributeGroupBudget(grpTarget, catNames, grp);
+        res = res.map(cat => {
+          if ((cat.group || 'Needs') === grp && (forceAll || !touchedCategoryIds.has(cat.id))) {
+            return {
+              ...cat,
+              budget: distributed[cat.name] ?? cat.budget,
+            };
+          }
+          return cat;
+        });
+      });
+      return res;
+    });
+    if (forceAll) {
+      setTouchedCategoryIds(new Set());
+    }
+  };
 
   const fetchData = useCallback(async () => {
     const loaded = await loadData();
@@ -101,13 +165,150 @@ export default function SettingsScreen() {
     setInvestments(loaded.investments);
     setBudgetingRuleState(loaded.budgetingRule || BUDGETING_RULES[1]);
     setOverrideDebtLock(!!loaded.overrideDebtLock);
+
+    // Credit cards & pending transactions
+    setCreditCards(loaded.creditCards || []);
+    const pending = (loaded.cardTransactions || []).filter(t => t.status === 'pending');
+    setPendingTransactions(pending);
+    if (Platform.OS === 'android') {
+      checkSmsPermissions().then(setHasSmsPermission).catch(() => {});
+    }
   }, []);
+
+  const handleOpenAddCard = () => {
+    setCardToEdit(null);
+    setShowAddCardModal(true);
+  };
+
+  const handleEditCard = (card: CreditCard) => {
+    setCardToEdit(card);
+    setShowAddCardModal(true);
+  };
+
+  const handleSaveCard = async (cardData: Omit<CreditCard, 'id'>) => {
+    if (cardToEdit) {
+      const updated = await updateCreditCard(cardToEdit.id, cardData);
+      setData(updated);
+      setCreditCards(updated.creditCards || []);
+    } else {
+      const isFirstCard = creditCards.length === 0;
+      const updated = await addCreditCard(cardData);
+      setData(updated);
+      setCreditCards(updated.creditCards || []);
+
+      if (isFirstCard && cardData.smsTrackingEnabled && Platform.OS === 'android') {
+        if (hasSmsPermission) {
+          setSyncingSms(true);
+          const count = await syncHistoricalSms(updated.creditCards);
+          setSyncingSms(false);
+          const refreshed = await loadData();
+          setData(refreshed);
+          const newPending = (refreshed.cardTransactions || []).filter(t => t.status === 'pending');
+          setPendingTransactions(newPending);
+          if (count > 0) {
+            setShowPendingModal(true);
+          }
+        } else {
+          setShowSmsConsentModal(true);
+        }
+      }
+    }
+  };
+
+  const handleConfirmDeleteCard = async () => {
+    if (!cardToDelete) return;
+    const updated = await deleteCreditCard(cardToDelete.id);
+    setData(updated);
+    setCreditCards(updated.creditCards || []);
+    setPendingTransactions((updated.cardTransactions || []).filter(t => t.status === 'pending'));
+    setCardToDelete(null);
+  };
+
+  const handleConsentContinue = async () => {
+    setShowSmsConsentModal(false);
+    const granted = await requestSmsPermissions();
+    setHasSmsPermission(granted);
+    if (granted) {
+      setSyncingSms(true);
+      const count = await syncHistoricalSms();
+      setSyncingSms(false);
+      const refreshed = await loadData();
+      setData(refreshed);
+      const newPending = (refreshed.cardTransactions || []).filter(t => t.status === 'pending');
+      setPendingTransactions(newPending);
+      if (count > 0) {
+        setShowPendingModal(true);
+      }
+    }
+  };
+
+  const handleManualSyncSms = async () => {
+    if (!hasSmsPermission) {
+      setShowSmsConsentModal(true);
+      return;
+    }
+    setSyncingSms(true);
+    const count = await syncHistoricalSms();
+    setSyncingSms(false);
+    const refreshed = await loadData();
+    setData(refreshed);
+    const newPending = (refreshed.cardTransactions || []).filter(t => t.status === 'pending');
+    setPendingTransactions(newPending);
+    if (count > 0) {
+      setShowPendingModal(true);
+    } else {
+      setAlertModal({
+        title: 'SMS Scan Complete',
+        message: 'No new credit card spend alerts were found in your inbox.',
+      });
+    }
+  };
+
+  const handleConfirmPendingTx = async (
+    id: string,
+    details: { category: string; type?: 'Need' | 'Want'; description?: string }
+  ) => {
+    const updated = await confirmCardTransaction(id, details);
+    setData(updated);
+    setCategories(updated.categories);
+    setPendingTransactions((updated.cardTransactions || []).filter(t => t.status === 'pending'));
+  };
+
+  const handleDismissPendingTx = async (id: string) => {
+    const updated = await dismissCardTransaction(id);
+    setData(updated);
+    setPendingTransactions((updated.cardTransactions || []).filter(t => t.status === 'pending'));
+  };
+
+  const handleSaveManualCardExpense = async (details: {
+    cardId: string;
+    amount: number;
+    merchant: string;
+    date: string;
+    category: string;
+    type: 'Need' | 'Want';
+  }) => {
+    const updated = await addManualCardTransaction(
+      details.cardId,
+      details.amount,
+      details.merchant,
+      details.date,
+      details.category,
+      details.type
+    );
+    setData(updated);
+    setCategories(updated.categories);
+  };
+
 
   const handleSelectBudgetingRule = async (newRule: BudgetingRule, isValid: boolean) => {
     setBudgetingRuleState(newRule);
     if (isValid) {
       await setBudgetingRule(newRule);
       setData(prev => (prev ? { ...prev, budgetingRule: newRule } : prev));
+      if (newRule.targets) {
+        handleAutoDistributeBudgets(newRule, salary, false);
+      }
     }
   };
 
@@ -264,6 +465,7 @@ export default function SettingsScreen() {
   };
 
   const handleUpdateCategoryBudget = (id: string, text: string) => {
+    setTouchedCategoryIds(prev => new Set(prev).add(id));
     const numeric = parseFloat(text.replace(/[^0-9]/g, '')) || 0;
     setCategories(prev =>
       prev.map(cat => (cat.id === id ? { ...cat, budget: numeric } : cat))
@@ -530,6 +732,21 @@ export default function SettingsScreen() {
                     Total Allocated: ₹{totalAllocatedBudget.toLocaleString()}
                   </Text>
                 </View>
+
+                {hasTargets && (
+                  <TouchableOpacity
+                    style={styles.autoDistributeBtn}
+                    onPress={() => handleAutoDistributeBudgets(budgetingRule, salary, false)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Auto-distribute budgets from rule"
+                  >
+                    <Ionicons name="sparkles-outline" size={14} color={Colors.primaryLight} />
+                    <Text style={styles.autoDistributeBtnText}>
+                      Auto-distribute untouched budgets from rule
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 {hasTargets ? (
                   groups.map(group => {
@@ -1082,6 +1299,145 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Credit Cards Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Ionicons name="card-outline" size={20} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Credit Cards</Text>
+            {pendingTransactions.length > 0 && (
+              <TouchableOpacity
+                style={styles.pendingBadge}
+                onPress={() => setShowPendingModal(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.pendingBadgeText}>{pendingTransactions.length} Pending</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.sectionSubtitle}>
+            Track spends by card, auto-import bank SMS transaction alerts, and review expenses.
+          </Text>
+
+          <View style={styles.card}>
+            {creditCards.length === 0 ? (
+              <View style={styles.emptyCardBox}>
+                <Ionicons name="card-outline" size={36} color={Colors.textMuted} />
+                <Text style={styles.emptyCardTitle}>No Credit Cards Added</Text>
+                <Text style={styles.emptyCardSub}>
+                  Add your credit cards to monitor spending and detect transaction SMS alerts on device.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.cardsList}>
+                {creditCards.map(card => (
+                  <View key={card.id} style={styles.cardRow}>
+                    <View style={[styles.cardColorBar, { backgroundColor: card.color || Colors.primary }]} />
+                    <View style={styles.cardInfo}>
+                      <View style={styles.cardTitleRow}>
+                        <Text style={styles.cardNickname}>{card.nickname}</Text>
+                        <Text style={styles.cardLast4}>•••• {card.last4}</Text>
+                      </View>
+                      <Text style={styles.cardBank}>{card.bank || 'Credit Card'}</Text>
+                    </View>
+
+                    <View style={styles.cardActions}>
+                      {Platform.OS === 'android' && (
+                        <TouchableOpacity
+                          style={[
+                            styles.smsToggleChip,
+                            card.smsTrackingEnabled && styles.smsToggleChipActive,
+                          ]}
+                          onPress={async () => {
+                            const nextVal = !card.smsTrackingEnabled;
+                            if (nextVal && !hasSmsPermission) {
+                              setShowSmsConsentModal(true);
+                            }
+                            const updated = await updateCreditCard(card.id, { smsTrackingEnabled: nextVal });
+                            setData(updated);
+                            setCreditCards(updated.creditCards || []);
+                          }}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={`SMS tracking for ${card.nickname}`}
+                        >
+                          <Ionicons
+                            name={card.smsTrackingEnabled ? 'chatbox-ellipses' : 'chatbox-ellipses-outline'}
+                            size={14}
+                            color={card.smsTrackingEnabled ? Colors.onPrimary : Colors.textMuted}
+                          />
+                          <Text
+                            style={[
+                              styles.smsToggleText,
+                              card.smsTrackingEnabled && styles.smsToggleTextActive,
+                            ]}
+                          >
+                            SMS {card.smsTrackingEnabled ? 'On' : 'Off'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <TouchableOpacity
+                        style={styles.cardIconBtn}
+                        onPress={() => handleEditCard(card)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Edit ${card.nickname}`}
+                      >
+                        <Ionicons name="pencil-outline" size={18} color={Colors.textSecondary} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.cardIconBtn}
+                        onPress={() => setCardToDelete(card)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Delete ${card.nickname}`}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Buttons row */}
+            <View style={styles.cardButtonsRow}>
+              <TouchableOpacity
+                style={styles.addCardButton}
+                onPress={handleOpenAddCard}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                <Text style={styles.addCardButtonText}>Add Credit Card</Text>
+              </TouchableOpacity>
+
+              {creditCards.length > 0 && Platform.OS === 'android' && (
+                <TouchableOpacity
+                  style={[styles.syncSmsButton, syncingSms && { opacity: 0.6 }]}
+                  onPress={handleManualSyncSms}
+                  disabled={syncingSms}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="sync-outline" size={18} color={Colors.textSecondary} />
+                  <Text style={styles.syncSmsButtonText}>
+                    {syncingSms ? 'Scanning...' : 'Scan 90d SMS'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {creditCards.length > 0 && (
+                <TouchableOpacity
+                  style={styles.manualExpenseBtn}
+                  onPress={() => setShowAddManualExpenseModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="receipt-outline" size={18} color={Colors.textSecondary} />
+                  <Text style={styles.manualExpenseBtnText}>Log Card Spend</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+
         {/* System Operations */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
@@ -1187,9 +1543,59 @@ export default function SettingsScreen() {
           setDebtEmiDay(day);
         }}
       />
+
+      {/* Delete Card Confirmation Modal */}
+      <ConfirmModal
+        visible={cardToDelete !== null}
+        title="Delete Credit Card"
+        message={`Are you sure you want to delete ${cardToDelete?.nickname} (•••• ${cardToDelete?.last4})? Any pending transactions for this card will be dismissed.`}
+        confirmText="Delete Card"
+        confirmStyle="destructive"
+        icon="trash-outline"
+        onCancel={() => setCardToDelete(null)}
+        onConfirm={handleConfirmDeleteCard}
+      />
+
+      {/* SMS Consent Explainer Modal */}
+      <SmsConsentModal
+        visible={showSmsConsentModal}
+        onContinue={handleConsentContinue}
+        onCancel={() => setShowSmsConsentModal(false)}
+      />
+
+      {/* Add / Edit Credit Card Modal */}
+      <AddCreditCardModal
+        visible={showAddCardModal}
+        initialCard={cardToEdit}
+        onSave={handleSaveCard}
+        onClose={() => setShowAddCardModal(false)}
+        onRequestSmsConsent={() => setShowSmsConsentModal(true)}
+        hasSmsPermission={hasSmsPermission}
+      />
+
+      {/* Pending Transactions Review Modal */}
+      <PendingTransactionsModal
+        visible={showPendingModal}
+        transactions={pendingTransactions}
+        cards={creditCards}
+        categories={categories}
+        onConfirm={handleConfirmPendingTx}
+        onDismiss={handleDismissPendingTx}
+        onClose={() => setShowPendingModal(false)}
+      />
+
+      {/* Manual Card Expense Modal */}
+      <AddCardExpenseModal
+        visible={showAddManualExpenseModal}
+        cards={creditCards}
+        categories={categories}
+        onSave={handleSaveManualCardExpense}
+        onClose={() => setShowAddManualExpenseModal(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -1321,6 +1727,24 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     fontFamily: Typography.bodyBold.fontFamily,
     ...TabularNums,
+  },
+  autoDistributeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    backgroundColor: withAlpha(Colors.primary, 0.12),
+    borderWidth: 1,
+    borderColor: withAlpha(Colors.primary, 0.25),
+    marginBottom: Spacing.md,
+  },
+  autoDistributeBtnText: {
+    ...Typography.caption,
+    color: Colors.primaryLight,
+    fontFamily: Typography.bodyBold.fontFamily,
   },
   categoryRowLast: {
     borderBottomWidth: 0,
@@ -1906,4 +2330,155 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.primaryLight,
   },
+  pendingBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    marginLeft: 'auto',
+  },
+  pendingBadgeText: {
+    ...Typography.badge,
+    color: Colors.onPrimary,
+  },
+  emptyCardBox: {
+    alignItems: 'center',
+    paddingVertical: Spacing.xl,
+    gap: Spacing.xs,
+  },
+  emptyCardTitle: {
+    ...Typography.bodyBold,
+    color: Colors.textPrimary,
+    marginTop: Spacing.xs,
+  },
+  emptyCardSub: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  cardsList: {
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.md,
+  },
+  cardColorBar: {
+    width: 6,
+    height: 38,
+    borderRadius: BorderRadius.sm,
+  },
+  cardInfo: {
+    flex: 1,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  cardNickname: {
+    ...Typography.bodyBold,
+    color: Colors.textPrimary,
+  },
+  cardLast4: {
+    ...Typography.small,
+    ...TabularNums,
+    color: Colors.textMuted,
+  },
+  cardBank: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  smsToggleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surfaceHighlight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  smsToggleChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  smsToggleText: {
+    ...Typography.badge,
+    color: Colors.textMuted,
+  },
+  smsToggleTextActive: {
+    color: Colors.onPrimary,
+  },
+  cardIconBtn: {
+    padding: Spacing.xs,
+  },
+  cardButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  addCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surfaceHighlight,
+    borderWidth: 1,
+    borderColor: withAlpha(Colors.primary, 0.4),
+  },
+  addCardButtonText: {
+    ...Typography.caption,
+    fontFamily: Typography.bodyBold.fontFamily,
+    color: Colors.primaryLight,
+  },
+  syncSmsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surfaceHighlight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  syncSmsButtonText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  manualExpenseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surfaceHighlight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  manualExpenseBtnText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
 });
+

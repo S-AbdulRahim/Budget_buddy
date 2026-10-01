@@ -19,6 +19,7 @@ import {
   withAlpha,
 } from '../../theme';
 import { POPULAR_GOAL_PRESETS, GOAL_COLORS, GoalPreset } from '../../data/budgetData';
+import InsightCard from '../InsightCard';
 
 export interface WizardGoal {
   id: string;
@@ -418,13 +419,38 @@ export default function StepGoals({
         </View>
       )}
 
-      {/* Info Tip Card */}
-      <View style={styles.tipCard}>
-        <Ionicons name="bulb-outline" size={20} color={Colors.accent} />
-        <Text style={styles.tipText}>
-          Small, regular contributions add up. Even a modest monthly amount builds long-term security.
-        </Text>
-      </View>
+      {/* Personalized Investment/SIP Insight */}
+      {(() => {
+        const totalSIP = hasInvestments
+          ? goals.reduce((sum, g) => sum + (parseFloat(g.monthlyAmount) || 0), 0)
+          : 0;
+
+        if (totalSIP > 0) {
+          const r = 0.10; // 10% annual
+          const i = r / 12; // monthly rate
+          const n = 240; // 20 years (240 months)
+          // FV of monthly SIP: P * [((1 + i)^n - 1) / i] * (1 + i)
+          const fv20 = totalSIP * ((Math.pow(1 + i, n) - 1) / i) * (1 + i);
+          const totalContributed = totalSIP * n;
+
+          return (
+            <InsightCard
+              icon="trending-up-outline"
+              text={`Investing ${formatCurrencyFull(totalSIP)}/month could grow to approximately ${formatCurrencyFull(Math.round(fv20))} in 20 years (from ${formatCurrencyFull(totalContributed)} total contributed) at a conservative 10% annual return.`}
+              subtext="Assumes a smoothed 10% average annual return compounded monthly; actual market returns fluctuate year to year and are not guaranteed."
+              style={{ marginTop: Spacing.xl }}
+            />
+          );
+        }
+
+        return (
+          <InsightCard
+            icon="leaf-outline"
+            text="Even ₹1,000/month in a diversified index fund compounds significantly over decades. Add your first goal above to see the math."
+            style={{ marginTop: Spacing.xl }}
+          />
+        );
+      })()}
     </View>
   );
 }
@@ -805,23 +831,5 @@ const styles = StyleSheet.create({
   addGoalConfirmBtnText: {
     ...Typography.bodyBold,
     color: Colors.onPrimary,
-  },
-  tipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: withAlpha(Colors.accent, 0.1),
-    borderWidth: 1,
-    borderColor: withAlpha(Colors.accent, 0.25),
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    width: '100%',
-    marginTop: Spacing.xxl,
-  },
-  tipText: {
-    ...Typography.caption,
-    color: Colors.accent,
-    flex: 1,
-    lineHeight: 18,
   },
 });

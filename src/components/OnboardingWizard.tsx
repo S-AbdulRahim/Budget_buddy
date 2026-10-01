@@ -28,6 +28,7 @@ import {
   BUDGETING_RULES,
   GoalPreset,
   generateDebtSchedule,
+  distributeGroupBudget,
 } from '../data/budgetData';
 import ConfirmModal from './ConfirmModal';
 import CalendarPickerModal from './CalendarPickerModal';
@@ -73,6 +74,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
   const [salary, setSalary] = useState('');
 
   // Step 2: Categories state
+  const [touchedCategoryIds, setTouchedCategoryIds] = useState<Set<string>>(new Set());
   const [categoriesList, setCategoriesList] = useState<Category[]>(
     INITIAL_EMPTY_DATA.categories
   );
@@ -87,14 +89,14 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     '8': true, // Savings
   });
   const [categoryBudgets, setCategoryBudgets] = useState<Record<string, string>>({
-    '1': '15000',
-    '2': '8000',
-    '3': '3000',
-    '4': '3000',
-    '5': '2000',
-    '6': '3000',
-    '7': '2000',
-    '8': '7300',
+    '1': '',
+    '2': '',
+    '3': '',
+    '4': '',
+    '5': '',
+    '6': '',
+    '7': '',
+    '8': '',
   });
 
   // Step 3: Debt state
@@ -184,15 +186,81 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     }
   };
 
+  // Helper to auto-distribute budgets across enabled categories based on budgeting rule
+  const applyAutoDistribution = (
+    rule: BudgetingRule,
+    salaryNum: number,
+    categories: Category[],
+    enabled: Record<string, boolean>,
+    touched: Set<string>,
+    currentBudgets: Record<string, string>
+  ): Record<string, string> => {
+    if (!rule.targets || salaryNum <= 0) {
+      if (rule.id === 'none') {
+        const nextBudgets: Record<string, string> = { ...currentBudgets };
+        categories.forEach(cat => {
+          if (!touched.has(cat.id)) {
+            nextBudgets[cat.id] = '';
+          }
+        });
+        return nextBudgets;
+      }
+      return currentBudgets;
+    }
+
+    const nextBudgets: Record<string, string> = { ...currentBudgets };
+    const groups: CategoryGroup[] = ['Needs', 'Wants', 'Savings'];
+
+    groups.forEach(group => {
+      const targetPct = rule.targets?.[group] ?? 0;
+      const groupTarget = (salaryNum * targetPct) / 100;
+      const enabledInGroup = categories.filter(
+        c => (c.group || 'Needs') === group && enabled[c.id]
+      );
+      const enabledNames = enabledInGroup.map(c => c.name);
+      const distributed = distributeGroupBudget(groupTarget, enabledNames, group);
+
+      enabledInGroup.forEach(c => {
+        if (!touched.has(c.id)) {
+          nextBudgets[c.id] = (distributed[c.name] ?? 0).toString();
+        }
+      });
+    });
+
+    return nextBudgets;
+  };
+
   // Step 2 Handlers
   const handleToggleCategory = (id: string) => {
+    const willEnable = !enabledCategories[id];
     setEnabledCategories(prev => ({
       ...prev,
-      [id]: !prev[id],
+      [id]: willEnable,
     }));
+    if (willEnable) {
+      setTouchedCategoryIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      const nextEnabled = { ...enabledCategories, [id]: true };
+      const nextTouched = new Set(touchedCategoryIds);
+      nextTouched.delete(id);
+      setCategoryBudgets(prev =>
+        applyAutoDistribution(
+          budgetingRule,
+          parseFloat(salary) || 0,
+          categoriesList,
+          nextEnabled,
+          nextTouched,
+          prev
+        )
+      );
+    }
   };
 
   const handleChangeCategoryBudget = (id: string, text: string) => {
+    setTouchedCategoryIds(prev => new Set(prev).add(id));
     setCategoryBudgets(prev => ({
       ...prev,
       [id]: text.replace(/[^0-9]/g, ''),
@@ -226,6 +294,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
     };
     setCategoriesList(prev => [...prev, newCategory]);
     setEnabledCategories(prev => ({ ...prev, [newId]: true }));
+    setTouchedCategoryIds(prev => new Set(prev).add(newId));
     setCategoryBudgets(prev => ({ ...prev, [newId]: budget }));
   };
 
@@ -300,6 +369,16 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         });
         return;
       }
+      setCategoryBudgets(prev =>
+        applyAutoDistribution(
+          budgetingRule,
+          parsedSalary,
+          categoriesList,
+          enabledCategories,
+          touchedCategoryIds,
+          prev
+        )
+      );
       setStep(2);
     } else if (step === 2) {
       if (budgetingRule.id === 'custom' && !isRuleValid) {
@@ -309,6 +388,16 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         });
         return;
       }
+      setCategoryBudgets(prev =>
+        applyAutoDistribution(
+          budgetingRule,
+          parseFloat(salary) || 0,
+          categoriesList,
+          enabledCategories,
+          touchedCategoryIds,
+          prev
+        )
+      );
       setStep(3);
     } else if (step === 3) {
       const totalBudget = Object.keys(categoryBudgets).reduce((sum, key) => {
@@ -494,6 +583,9 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         : 'Debt-free';
 
     const activeGoalsCount = hasInvestments ? goals.length : 0;
+    const totalSIP = hasInvestments
+      ? goals.reduce((sum, g) => sum + (parseFloat(g.monthlyAmount) || 0), 0)
+      : 0;
 
     return (
       <View style={styles.container} onLayout={handleContainerLayout}>
@@ -506,6 +598,7 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
           hasDebt={hasDebt}
           debtPayoffTarget={debtPayoffTarget}
           goalsCount={activeGoalsCount}
+          monthlySIP={totalSIP}
           onGoToDashboard={onSuccess}
           animValue={completionAnim}
           contentWidth={contentWidth}
@@ -561,10 +654,21 @@ export default function OnboardingWizard({ onSuccess }: OnboardingWizardProps) {
         {/* Step 2: Budgeting Rule Selection */}
         {step === 2 && (
           <StepBudgetingRule
+            salary={parseFloat(salary) || 0}
             selectedRule={budgetingRule}
             onSelectRule={(rule, valid) => {
               setBudgetingRule(rule);
               setIsRuleValid(valid);
+              setCategoryBudgets(prev =>
+                applyAutoDistribution(
+                  rule,
+                  parseFloat(salary) || 0,
+                  categoriesList,
+                  enabledCategories,
+                  touchedCategoryIds,
+                  prev
+                )
+              );
             }}
           />
         )}

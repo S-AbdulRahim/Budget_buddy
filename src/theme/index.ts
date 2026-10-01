@@ -1,4 +1,4 @@
-// Theme / Design System for Budget Buddy
+// Theme / Design System for FinCompass
 // Dark mode — refined teal + gold palette (was violet + neon cyan/green)
 //
 // Drop-in replacement for src/theme/index.ts. Only the Colors values changed;

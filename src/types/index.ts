@@ -1,4 +1,4 @@
-// TypeScript interfaces for Budget Buddy
+// TypeScript interfaces for FinCompass
 
 export interface Expense {
   id: string;
@@ -57,6 +57,26 @@ export interface BudgetingRule {
   targets: { Needs: number; Wants: number; Savings: number } | null; // null when id === 'none'
 }
 
+export interface CreditCard {
+  id: string;
+  nickname: string;
+  last4: string;
+  bank?: string;
+  color: string;
+  smsTrackingEnabled: boolean;
+}
+
+export interface CardTransaction {
+  id: string;
+  cardId: string;
+  amount: number;
+  merchant?: string;
+  date: string;
+  status: 'pending' | 'confirmed' | 'dismissed';
+  source: 'sms' | 'manual';
+  rawSmsSnippet?: string;
+}
+
 export interface AppData {
   salary: number;
   expenses: Expense[];
@@ -74,4 +94,7 @@ export interface AppData {
   isSetupCompleted?: boolean;
   budgetingRule?: BudgetingRule;
   overrideDebtLock?: boolean;
+  creditCards?: CreditCard[];
+  cardTransactions?: CardTransaction[];
 }
+

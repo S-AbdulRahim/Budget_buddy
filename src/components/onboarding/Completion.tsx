@@ -21,6 +21,7 @@ import {
 } from '../../theme';
 import { BudgetingRule } from '../../types';
 import BrandMark from '../BrandMark';
+import InsightCard from '../InsightCard';
 
 export interface CompletionProps {
   salary: number;
@@ -31,6 +32,7 @@ export interface CompletionProps {
   hasDebt: boolean;
   debtPayoffTarget: string;
   goalsCount: number;
+  monthlySIP?: number;
   onGoToDashboard: () => void;
   animValue: Animated.Value;
   contentWidth: number;
@@ -46,6 +48,7 @@ export default function Completion({
   hasDebt,
   debtPayoffTarget,
   goalsCount,
+  monthlySIP = 0,
   onGoToDashboard,
   animValue,
   contentWidth,
@@ -68,6 +71,12 @@ export default function Completion({
   const wantsPct = Math.round((wantsBudget / safeSalary) * 100);
   const savingsPct = Math.round((savingsBudget / safeSalary) * 100);
   const unallocatedPct = Math.max(0, 100 - (needsPct + wantsPct + savingsPct));
+
+  // Compute savings & wealth metrics
+  const totalMonthlySavings = savingsBudget + monthlySIP;
+  const savingsWealthPct = Math.round((totalMonthlySavings / safeSalary) * 100);
+  const annualWealth = totalMonthlySavings * 12;
+  const debtStatusText = hasDebt && debtPayoffTarget ? `Debt-free by ${debtPayoffTarget}` : 'Debt-free';
 
   const hasTargets = budgetingRule?.targets !== null && budgetingRule?.targets !== undefined;
   const splitTitle = hasTargets ? `${budgetingRule!.label} Budget Split` : 'Budget Allocation Split';
@@ -184,48 +193,55 @@ export default function Completion({
           </View>
         </View>
 
-        {/* Summary card */}
+        {/* Personalized Financial Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryLabelGroup}>
-              <Ionicons name="cash-outline" size={20} color={Colors.primaryLight} />
-              <Text style={styles.summaryLabel}>Monthly income</Text>
-            </View>
-            <Text style={styles.summaryValue}>{formatCurrencyFull(salary)}</Text>
-          </View>
-
-          <View style={styles.summaryDivider} />
-
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryLabelGroup}>
-              <Ionicons name="pie-chart-outline" size={20} color={Colors.primaryLight} />
-              <Text style={styles.summaryLabel}>Total budget allocated</Text>
-            </View>
-            <Text style={styles.summaryValue}>{formatCurrencyFull(totalBudget)}</Text>
-          </View>
-
-          <View style={styles.summaryDivider} />
-
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryLabelGroup}>
-              <Ionicons name="trending-down-outline" size={20} color={Colors.accentAmber} />
-              <Text style={styles.summaryLabel}>Debt payoff</Text>
-            </View>
-            <Text style={styles.summaryValue}>{debtPayoffTarget}</Text>
-          </View>
-
-          <View style={styles.summaryDivider} />
-
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryLabelGroup}>
-              <Ionicons name="flag-outline" size={20} color={Colors.accentGreen} />
-              <Text style={styles.summaryLabel}>Savings goals</Text>
+              <Ionicons name="wallet-outline" size={20} color={Colors.groupSavings} />
+              <Text style={styles.summaryLabel}>Total monthly savings + SIP</Text>
             </View>
             <Text style={styles.summaryValue}>
-              {goalsCount > 0 ? `${goalsCount} active goals` : 'Not configured'}
+              {formatCurrencyFull(totalMonthlySavings)}/mo ({savingsWealthPct}%)
             </Text>
           </View>
+
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryLabelGroup}>
+              <Ionicons name="trending-up-outline" size={20} color={Colors.accentGreen} />
+              <Text style={styles.summaryLabel}>Annual projected wealth</Text>
+            </View>
+            <Text style={styles.summaryValue}>{formatCurrencyFull(annualWealth)} / yr</Text>
+          </View>
+
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryLabelGroup}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={Colors.accentAmber} />
+              <Text style={styles.summaryLabel}>Debt status</Text>
+            </View>
+            <Text style={styles.summaryValue}>{debtStatusText}</Text>
+          </View>
+
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryLabelGroup}>
+              <Ionicons name="compass-outline" size={20} color={Colors.primaryLight} />
+              <Text style={styles.summaryLabel}>Rule selected</Text>
+            </View>
+            <Text style={styles.summaryValue}>{budgetingRule?.label ?? 'No rule'}</Text>
+          </View>
         </View>
+
+        {/* Motivational Honest Insight */}
+        <InsightCard
+          icon="shield-checkmark-outline"
+          text="Your plan is realistic because it's based on your actual income, not arbitrary rules. Stick to it for 90 days to build the habit."
+          style={{ marginBottom: Spacing.xl }}
+        />
 
         {/* Go to Dashboard CTA */}
         <TouchableOpacity

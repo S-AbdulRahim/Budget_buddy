@@ -1,6 +1,6 @@
-# 📊 Budget Buddy (Family Budget Tracker)
+# 🧭 FinCompass (Personal Financial Blueprint)
 
-**Budget Buddy** is a cross-platform mobile application built with **React Native** and **Expo**. It digitizes a personal finance Excel spreadsheet into a dynamic, highly interactive mobile application for tracking budgets, logging expenses, managing debt payoff, planning investments, and viewing annual projections.
+**FinCompass** is a cross-platform personal finance application built with **React Native** and **Expo**. It digitizes personal budgeting into a dynamic, highly interactive application for tracking budgets, logging expenses, managing debt payoff, planning investments, and viewing annual projections.
 
 ---
 
@@ -37,7 +37,7 @@
 ## 📂 Project Structure
 
 ```text
-Budget_buddy/
+FinCompass/
 ├── app/                  # Expo Router navigation configuration
 │   ├── _layout.tsx       # Root entry layout & global Status Bar config
 │   ├── index.tsx         # Initial index route redirecting to tabs
@@ -82,7 +82,7 @@ Ensure you have the following installed on your machine:
 
 1. **Clone or Open the Project Directory**:
    ```bash
-   cd Budget_buddy
+   cd FinCompass
    ```
 
 2. **Install Dependencies**:
@@ -126,7 +126,7 @@ Once the custom app binary is installed on your device or emulator:
    ```bash
    npx expo start --dev-client
    ```
-2. Open the custom **Budget Buddy** developer app, and scan the terminal's QR code or select your local dev server from the launcher screen to run the app.
+2. Open the custom **FinCompass** developer app, and scan the terminal's QR code or select your local dev server from the launcher screen to run the app.
 
 ---
 

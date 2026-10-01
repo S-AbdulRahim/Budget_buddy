@@ -1,4 +1,4 @@
-# Budget Buddy — Project Rules
+# FinCompass — Project Rules
 
 These are binding conventions for this codebase, not suggestions. If a change
 would violate one of these, either fix it to comply or explicitly flag why
@@ -57,6 +57,7 @@ can't be recolored to match theme state, and don't scale cleanly with
 | Savings goals & targets   | `flag-outline`             |
 | Budgeting framework / rule| `compass-outline`          |
 | Quick override / flash    | `flash-outline`            |
+| Credit cards & spends     | `card-outline`             |
 
 If a new section needs an icon not listed here, add it to this table in the
 same commit — this table is the single source of truth for icon choices,
@@ -279,17 +280,24 @@ to the theme file rather than inlining a one-off value.
 - **All calls to `Haptics.*` MUST be wrapped in `try/catch` blocks** because web builds
   and devices without haptic actuators will throw unhandled rejections if unwrapped.
 
+### Credit card & SMS privacy policy
+- **Never store full card numbers or CVV:** FinCompass strictly records only the user-provided last 4 digits (`last4`).
+- **Sender allowlist is the single source of truth:** `BANK_PATTERNS` in `src/data/smsParser.ts` defines all recognized Indian bank transactional DLT header patterns. Messages from personal phone numbers, unknown senders, or delivery apps are immediately rejected.
+- **Ephemeral raw snippet:** `rawSmsSnippet` is only retained while a transaction is in `'pending'` state for user verification in the UI. The moment a transaction is confirmed or dismissed, `rawSmsSnippet` is strictly stripped and deleted before persisting to storage.
+- **100% on-device processing:** All SMS reading and parsing occurs strictly on the user's device. No SMS body, merchant name, or financial figure is ever transmitted off the device.
+- **Store compliance requirement:** Prior to Google Play release, the Google Play Console Permissions Declaration Form for SMS / Call Log exceptions (Money Management category) must be submitted, and the public privacy policy URL must clearly disclose the local read-only SMS permission.
+
 ### Brand system (`BrandMark`)
 - Use `<BrandMark />` (`src/components/BrandMark.tsx`) for the official app
   logo and wordmark across onboarding, splash, headers, and completion screens.
 - **Visual anatomy:**
   - Container: Rounded square with diagonal linear gradient (`Colors.primaryLight`
     to `Colors.primaryDark`).
-  - Glyph: Pure white wallet icon (`wallet-outline`) in `Colors.onPrimary`.
-  - Coin accent: Gold metallic dot (`Colors.accentGold`) anchored at the
+  - Glyph: Compass icon (`compass`) in `Colors.onPrimary`.
+  - Coin accent: Gold metallic dot (`Colors.accentGold` / `Colors.accent`) anchored at the
     top-right of the icon container.
-  - Wordmark: Dual-tone Poppins bold (`"Budget"` in `Colors.textPrimary`,
-    `"Buddy"` in `Colors.primaryLight`).
+  - Wordmark: Dual-tone Poppins bold (`"Fin"` in `Colors.textPrimary`,
+    `"Compass"` in `Colors.primaryLight`).
 - Brand SVG master files are stored in `assets/brand/` (`logo.svg` and
   `logo-with-wordmark.svg`).
 

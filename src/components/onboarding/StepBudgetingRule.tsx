@@ -1,19 +1,75 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, withAlpha } from '../../theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, withAlpha, formatCurrencyFull } from '../../theme';
 import { BudgetingRule } from '../../types';
 import BudgetingRulePicker from '../BudgetingRulePicker';
+import InsightCard from '../InsightCard';
 
 export interface StepBudgetingRuleProps {
+  salary: number;
   selectedRule: BudgetingRule;
   onSelectRule: (rule: BudgetingRule, isValid: boolean) => void;
 }
 
 export default function StepBudgetingRule({
+  salary,
   selectedRule,
   onSelectRule,
 }: StepBudgetingRuleProps) {
+  const getRuleInsight = (): { text: string; subtext?: string; icon: keyof typeof Ionicons.glyphMap } => {
+    const formattedSalary = formatCurrencyFull(salary);
+    const subtext = 'You can change this budgeting split anytime later in Settings without resetting your category limits.';
+
+    switch (selectedRule.id) {
+      case '50-30-20': {
+        const y = Math.round(salary * 0.20);
+        const z = y * 12;
+        return {
+          text: `With your ${formattedSalary} income, this sets aside ${formatCurrencyFull(y)} every month for savings and debt — that's ${formatCurrencyFull(z)} a year working for your future.`,
+          subtext,
+          icon: 'trending-up-outline',
+        };
+      }
+      case '70-20-10': {
+        const y = Math.round(salary * 0.20);
+        const w = Math.round(salary * 0.70);
+        return {
+          text: `With your ${formattedSalary} income, this puts ${formatCurrencyFull(y)} every month toward savings and debt, while keeping ${formatCurrencyFull(w)} for everyday essentials.`,
+          subtext,
+          icon: 'shield-checkmark-outline',
+        };
+      }
+      case '80-20': {
+        const y = Math.round(salary * 0.20);
+        return {
+          text: `With your ${formattedSalary} income, ${formatCurrencyFull(y)} every month goes straight to savings and debt before anything else.`,
+          subtext,
+          icon: 'wallet-outline',
+        };
+      }
+      case 'custom': {
+        const pct = selectedRule.targets?.Savings ?? 0;
+        const y = Math.round(salary * (pct / 100));
+        return {
+          text: `Your custom split directs ${formatCurrencyFull(y)} (${pct}%) to savings and debt every month.`,
+          subtext,
+          icon: 'options-outline',
+        };
+      }
+      case 'none':
+      default: {
+        return {
+          text: "Setting your own limits gives you full control. You can always apply a rule later in Settings.",
+          subtext,
+          icon: 'compass-outline',
+        };
+      }
+    }
+  };
+
+  const insight = getRuleInsight();
+
   return (
     <View style={styles.stepContainer}>
       {/* Hero Icon */}
@@ -32,13 +88,13 @@ export default function StepBudgetingRule({
         onSelectRule={onSelectRule}
       />
 
-      {/* Helper Tip Card */}
-      <View style={styles.tipCard}>
-        <Ionicons name="bulb-outline" size={20} color={Colors.accent} />
-        <Text style={styles.tipText}>
-          You can change this budgeting split anytime later in Settings without resetting your category limits or spent amounts.
-        </Text>
-      </View>
+      {/* Insight Card */}
+      <InsightCard
+        icon={insight.icon}
+        text={insight.text}
+        subtext={insight.subtext}
+        style={{ marginTop: Spacing.xl }}
+      />
     </View>
   );
 }
@@ -81,23 +137,5 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: Spacing.xxl,
     maxWidth: 440,
-  },
-  tipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: withAlpha(Colors.accent, 0.1),
-    borderWidth: 1,
-    borderColor: withAlpha(Colors.accent, 0.25),
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginTop: Spacing.xl,
-    width: '100%',
-  },
-  tipText: {
-    ...Typography.caption,
-    color: Colors.textPrimary,
-    flex: 1,
-    lineHeight: 18,
   },
 });

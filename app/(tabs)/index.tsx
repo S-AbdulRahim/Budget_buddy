@@ -1,34 +1,46 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrency, TabularNums, withAlpha } from '../../src/theme';
-import { loadData } from '../../src/data/storage';
+import { loadData, confirmCardTransaction, dismissCardTransaction } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 import StatCard from '../../src/components/StatCard';
 import ProgressBar from '../../src/components/ProgressBar';
 import OnboardingWizard from '../../src/components/OnboardingWizard';
+import PendingTransactionsModal from '../../src/components/PendingTransactionsModal';
+import { setupLiveSmsListener } from '../../src/data/smsService';
 
 export default function DashboardScreen() {
   const [data, setData] = useState<AppData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     const loaded = await loadData();
     setData(loaded);
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = setupLiveSmsListener(() => {
+      fetchData();
+    });
+    return () => unsubscribe();
+  }, [fetchData]);
+
   useFocusEffect(
     useCallback(() => {
       fetchData();
     }, [fetchData])
   );
+
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -53,6 +65,7 @@ export default function DashboardScreen() {
   const totalSpent = data.categories.reduce((sum, c) => sum + c.spent, 0);
   const remaining = data.salary - totalSpent - data.debtEmi;
   const savingsRate = data.salary > 0 ? Math.round(((data.salary - totalSpent - data.debtEmi) / data.salary) * 100) : 0;
+  const pendingTransactions = (data.cardTransactions || []).filter(t => t.status === 'pending');
 
   return (
     <ScrollView
@@ -66,7 +79,7 @@ export default function DashboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Budget Buddy</Text>
+          <Text style={styles.greeting}>FinCompass</Text>
           <Text style={styles.month}>
             {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
           </Text>
@@ -106,6 +119,40 @@ export default function DashboardScreen() {
           <View style={[styles.miniBarSegment, { flex: Math.max(remaining, 0), backgroundColor: Colors.accentGreen }]} />
         </View>
       </View>
+
+      {/* Pending Transactions Review Banner */}
+      {pendingTransactions.length > 0 && (
+        <TouchableOpacity
+          style={styles.pendingBanner}
+          onPress={() => setShowPendingModal(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Review ${pendingTransactions.length} pending card transactions`}
+        >
+          <View style={styles.pendingBannerLeft}>
+            <View style={styles.pendingBannerIcon}>
+              <Ionicons name="card-outline" size={20} color={Colors.onPrimary} />
+            </View>
+            <View style={styles.pendingBannerTextWrap}>
+              <View style={styles.pendingBannerTitleRow}>
+                <Text style={styles.pendingBannerTitle}>
+                  {pendingTransactions.length} Card Spend{pendingTransactions.length > 1 ? 's' : ''} Detected
+                </Text>
+                <View style={styles.pendingCountPill}>
+                  <Text style={styles.pendingCountPillText}>{pendingTransactions.length}</Text>
+                </View>
+              </View>
+              <Text style={styles.pendingBannerSub}>
+                Tap to review & assign to budget categories
+              </Text>
+            </View>
+          </View>
+          <View style={styles.pendingBannerAction}>
+            <Text style={styles.pendingBannerActionText}>Review</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.primaryLight} />
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* Stat Cards */}
       <View style={styles.statRow}>
@@ -155,9 +202,27 @@ export default function DashboardScreen() {
       </View>
 
       <View style={{ height: Spacing.xxxl }} />
+
+      {/* Pending Transactions Modal */}
+      <PendingTransactionsModal
+        visible={showPendingModal}
+        transactions={pendingTransactions}
+        cards={data.creditCards || []}
+        categories={data.categories}
+        onConfirm={async (id, details) => {
+          await confirmCardTransaction(id, details);
+          await fetchData();
+        }}
+        onDismiss={async id => {
+          await dismissCardTransaction(id);
+          await fetchData();
+        }}
+        onClose={() => setShowPendingModal(false)}
+      />
     </ScrollView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -286,4 +351,69 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     gap: Spacing.lg,
   },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: withAlpha(Colors.primary, 0.12),
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+    borderWidth: 1,
+    borderColor: withAlpha(Colors.primary, 0.3),
+  },
+  pendingBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    flex: 1,
+  },
+  pendingBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingBannerTextWrap: {
+    flex: 1,
+  },
+  pendingBannerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  pendingBannerTitle: {
+    ...Typography.bodyBold,
+    color: Colors.textPrimary,
+  },
+  pendingCountPill: {
+    backgroundColor: Colors.accentAmber,
+    paddingHorizontal: Spacing.xs + 2,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.full,
+  },
+  pendingCountPillText: {
+    ...Typography.badge,
+    color: Colors.surfaceElevated,
+    fontFamily: Typography.bodyBold.fontFamily,
+  },
+  pendingBannerSub: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  pendingBannerAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: Spacing.sm,
+  },
+  pendingBannerActionText: {
+    ...Typography.caption,
+    fontFamily: Typography.bodyBold.fontFamily,
+    color: Colors.primaryLight,
+  },
 });
+

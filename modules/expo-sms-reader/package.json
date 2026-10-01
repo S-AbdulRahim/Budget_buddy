@@ -1,0 +1,16 @@
+{
+  "name": "expo-sms-reader",
+  "version": "1.0.0",
+  "description": "High-fidelity native SMS reader and live incoming transaction watcher for Expo",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {},
+  "keywords": [
+    "expo",
+    "expo-module",
+    "sms",
+    "read-sms"
+  ],
+  "author": "FinCompass",
+  "license": "MIT"
+}

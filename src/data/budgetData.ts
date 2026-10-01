@@ -13,6 +13,76 @@ export const DEFAULT_CATEGORY_GROUPS: Record<string, CategoryGroup> = {
   Savings: 'Savings',
 };
 
+export const CATEGORY_DEFAULT_WEIGHTS: Record<string, number> = {
+  Rent: 45,
+  Groceries: 25,
+  Transportation: 12,
+  Utilities: 12,
+  Healthcare: 6,
+  Entertainment: 45,
+  Shopping: 55,
+  Savings: 100,
+};
+
+export const GROUP_DEFAULT_WEIGHTS: Record<CategoryGroup, number> = {
+  Needs: 20,
+  Wants: 50,
+  Savings: 100,
+};
+
+export function distributeGroupBudget(
+  groupTargetAmount: number,
+  enabledCategoryNames: string[],
+  group?: CategoryGroup
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  if (groupTargetAmount <= 0 || enabledCategoryNames.length === 0) {
+    enabledCategoryNames.forEach(name => {
+      result[name] = 0;
+    });
+    return result;
+  }
+
+  const defaultGroupWeight = group ? GROUP_DEFAULT_WEIGHTS[group] : 20;
+  let totalWeight = 0;
+  const weights: Record<string, number> = {};
+
+  enabledCategoryNames.forEach(name => {
+    const w = CATEGORY_DEFAULT_WEIGHTS[name] ?? defaultGroupWeight;
+    weights[name] = w;
+    totalWeight += w;
+  });
+
+  if (totalWeight <= 0) {
+    enabledCategoryNames.forEach(name => {
+      result[name] = 0;
+    });
+    return result;
+  }
+
+  let largestCat = enabledCategoryNames[0];
+  let largestVal = -1;
+  let currentSum = 0;
+
+  enabledCategoryNames.forEach(name => {
+    const raw = (weights[name] / totalWeight) * groupTargetAmount;
+    const rounded = Math.round(raw / 50) * 50;
+    result[name] = rounded;
+    currentSum += rounded;
+    if (rounded > largestVal) {
+      largestVal = rounded;
+      largestCat = name;
+    }
+  });
+
+  const diff = groupTargetAmount - currentSum;
+  if (diff !== 0 && largestCat) {
+    result[largestCat] = Math.max(0, result[largestCat] + diff);
+  }
+
+  return result;
+}
+
 export const BUDGETING_RULES: BudgetingRule[] = [
   {
     id: 'none',
@@ -209,10 +279,24 @@ export const INITIAL_EMPTY_DATA: AppData = {
   isSetupCompleted: false,
   budgetingRule: BUDGETING_RULES[1],
   overrideDebtLock: false,
+  creditCards: [],
+  cardTransactions: [],
 };
 
 // Kept for backward compatibility if any older layouts reference it
 export const DEFAULT_DATA = INITIAL_EMPTY_DATA;
+
+export const CREDIT_CARD_COLORS = [
+  Colors.primary,
+  Colors.primaryDark,
+  Colors.categoryRent,
+  Colors.accent,
+  Colors.accentPink,
+  Colors.categoryHealthcare,
+  Colors.accentRed,
+  Colors.surfaceElevated,
+];
+
 
 export interface GoalPreset {
   name: string;

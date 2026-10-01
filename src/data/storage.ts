@@ -1,6 +1,6 @@
 // AsyncStorage wrapper for data persistence
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppData, Expense, Category, Investment, BudgetingRule } from '../types';
+import { AppData, Expense, Category, Investment, BudgetingRule, CreditCard, CardTransaction } from '../types';
 import {
   INITIAL_EMPTY_DATA,
   DEFAULT_CATEGORY_GROUPS,
@@ -37,11 +37,20 @@ export async function loadData(): Promise<AppData> {
         hasMigration = true;
         data.overrideDebtLock = false;
       }
+      if (!data.creditCards) {
+        hasMigration = true;
+        data.creditCards = [];
+      }
+      if (!data.cardTransactions) {
+        hasMigration = true;
+        data.cardTransactions = [];
+      }
       if (hasMigration) {
         await saveData(data);
       }
       return data;
     }
+
     // First launch — seed with empty configured data
     await saveData(INITIAL_EMPTY_DATA);
     return INITIAL_EMPTY_DATA;
@@ -180,3 +189,169 @@ export async function resetData(): Promise<AppData> {
   await saveData(INITIAL_EMPTY_DATA);
   return INITIAL_EMPTY_DATA;
 }
+
+export async function addCreditCard(card: Omit<CreditCard, 'id'>): Promise<AppData> {
+  const data = await loadData();
+  const newCard: CreditCard = {
+    ...card,
+    id: Date.now().toString(),
+  };
+  data.creditCards = [...(data.creditCards || []), newCard];
+  await saveData(data);
+  return data;
+}
+
+export async function updateCreditCard(cardId: string, updates: Partial<CreditCard>): Promise<AppData> {
+  const data = await loadData();
+  data.creditCards = (data.creditCards || []).map(c => (c.id === cardId ? { ...c, ...updates } : c));
+  await saveData(data);
+  return data;
+}
+
+export async function deleteCreditCard(cardId: string): Promise<AppData> {
+  const data = await loadData();
+  data.creditCards = (data.creditCards || []).filter(c => c.id !== cardId);
+  // Dismiss or remove any pending transactions for this card and strip raw snippets
+  data.cardTransactions = (data.cardTransactions || []).map(tx => {
+    if (tx.cardId === cardId && tx.status === 'pending') {
+      const { rawSmsSnippet, ...rest } = tx;
+      return { ...rest, status: 'dismissed' as const };
+    }
+    return tx;
+  });
+  await saveData(data);
+  return data;
+}
+
+export async function addCardTransactions(transactions: Omit<CardTransaction, 'id'>[]): Promise<AppData> {
+  const data = await loadData();
+  const existing = data.cardTransactions || [];
+
+  const newTxList: CardTransaction[] = [];
+  transactions.forEach((tx, idx) => {
+    const isDuplicate = existing.some(
+      e =>
+        e.cardId === tx.cardId &&
+        e.amount === tx.amount &&
+        e.date === tx.date &&
+        (e.merchant === tx.merchant || (e.rawSmsSnippet && tx.rawSmsSnippet && e.rawSmsSnippet === tx.rawSmsSnippet))
+    );
+    if (!isDuplicate) {
+      newTxList.push({
+        ...tx,
+        id: `${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+      });
+    }
+  });
+
+  if (newTxList.length > 0) {
+    data.cardTransactions = [...newTxList, ...existing];
+    await saveData(data);
+  }
+  return data;
+}
+
+export async function confirmCardTransaction(
+  transactionId: string,
+  expenseDetails: { category: string; type?: 'Need' | 'Want'; description?: string }
+): Promise<AppData> {
+  const data = await loadData();
+  const txIndex = (data.cardTransactions || []).findIndex(t => t.id === transactionId);
+  if (txIndex === -1) return data;
+
+  const tx = data.cardTransactions![txIndex];
+  const cat = data.categories.find(c => c.name === expenseDetails.category);
+  const defaultType = cat?.group === 'Needs' ? 'Need' : 'Want';
+
+  const newExpense: Expense = {
+    id: Date.now().toString(),
+    amount: tx.amount,
+    category: expenseDetails.category,
+    description: expenseDetails.description || tx.merchant || 'Credit Card Spend',
+    date: tx.date,
+    paymentMode: 'Credit Card',
+    type: expenseDetails.type || defaultType,
+  };
+
+  data.expenses = [newExpense, ...data.expenses];
+
+  // Recompute category spent
+  if (cat) {
+    cat.spent = data.expenses
+      .filter(e => e.category === cat.name)
+      .reduce((sum, e) => sum + e.amount, 0);
+  }
+
+  // Update status to confirmed and strip ephemeral snippet
+  const { rawSmsSnippet, ...cleanTx } = tx;
+  data.cardTransactions![txIndex] = {
+    ...cleanTx,
+    status: 'confirmed',
+  };
+
+  await saveData(data);
+  return data;
+}
+
+export async function dismissCardTransaction(transactionId: string): Promise<AppData> {
+  const data = await loadData();
+  const txIndex = (data.cardTransactions || []).findIndex(t => t.id === transactionId);
+  if (txIndex === -1) return data;
+
+  const tx = data.cardTransactions![txIndex];
+  // Update status to dismissed and strip ephemeral snippet
+  const { rawSmsSnippet, ...cleanTx } = tx;
+  data.cardTransactions![txIndex] = {
+    ...cleanTx,
+    status: 'dismissed',
+  };
+
+  await saveData(data);
+  return data;
+}
+
+export async function addManualCardTransaction(
+  cardId: string,
+  amount: number,
+  merchant: string,
+  date: string,
+  category: string,
+  type: 'Need' | 'Want'
+): Promise<AppData> {
+  const data = await loadData();
+  const newTxId = `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  const newTx: CardTransaction = {
+    id: newTxId,
+    cardId,
+    amount,
+    merchant,
+    date,
+    status: 'confirmed',
+    source: 'manual',
+  };
+
+  data.cardTransactions = [newTx, ...(data.cardTransactions || [])];
+
+  const newExpense: Expense = {
+    id: Date.now().toString(),
+    amount,
+    category,
+    description: merchant || 'Credit Card Spend',
+    date,
+    paymentMode: 'Credit Card',
+    type,
+  };
+  data.expenses = [newExpense, ...data.expenses];
+
+  const cat = data.categories.find(c => c.name === category);
+  if (cat) {
+    cat.spent = data.expenses
+      .filter(e => e.category === cat.name)
+      .reduce((sum, e) => sum + e.amount, 0);
+  }
+
+  await saveData(data);
+  return data;
+}
+

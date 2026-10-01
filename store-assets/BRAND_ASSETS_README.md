@@ -1,4 +1,4 @@
-# Budget Buddy — Brand Assets
+# FinCompass — Brand Assets
 
 Everything here is rendered from `assets/brand/logo.svg`'s design, corrected
 so the coin accent sits fully inside Android's adaptive-icon safe zone (the

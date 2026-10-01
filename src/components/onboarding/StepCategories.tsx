@@ -20,6 +20,7 @@ import {
 } from '../../theme';
 import { Category, CategoryGroup, BudgetingRule } from '../../types';
 import CategoryRow from '../CategoryRow';
+import InsightCard from '../InsightCard';
 
 export interface StepCategoriesProps {
   salary: number;
@@ -406,15 +407,37 @@ export default function StepCategories({
         </View>
       )}
 
-      {/* Info Tip Card */}
-      <View style={styles.tipCard}>
-        <Ionicons name="bulb-outline" size={20} color={Colors.accent} />
-        <Text style={styles.tipText}>
-          {hasTargets
-            ? `The ${rule.label} benchmark: Allocate up to ${targetNeeds}% for essentials, ${targetWants}% for discretionary wants, and ${targetSavings}% for debt payoff and savings.`
-            : 'Personal limits: Allocate whatever limits match your current lifestyle and priorities without pressure from fixed benchmarks.'}
-        </Text>
-      </View>
+      {/* Personalized Allocation Insight */}
+      {(() => {
+        let text = '';
+        let subtext: string | undefined;
+        let icon: keyof typeof Ionicons.glyphMap = 'information-circle-outline';
+
+        if (hasTargets) {
+          if (totalAllocated <= salary) {
+            const remaining = salary - totalAllocated;
+            text = `You've allocated ${formatCurrencyFull(totalAllocated)} of your ${formatCurrencyFull(salary)} income. ${formatCurrencyFull(remaining)} remains unallocated — you can assign it to savings, investments, or keep it as a buffer.`;
+            icon = 'checkmark-circle-outline';
+          } else {
+            const over = totalAllocated - salary;
+            text = `Total allocated (${formatCurrencyFull(totalAllocated)}) is ${formatCurrencyFull(over)} over your monthly income. Trim ${formatCurrencyFull(over)} across your categories to keep your plan balanced.`;
+            icon = 'alert-circle-outline';
+          }
+        } else {
+          text = `Total allocated: ${formatCurrencyFull(totalAllocated)} of ${formatCurrencyFull(salary)} income.`;
+          subtext = "You're setting your own limits without rigid percentage constraints.";
+          icon = 'information-circle-outline';
+        }
+
+        return (
+          <InsightCard
+            icon={icon}
+            text={text}
+            subtext={subtext}
+            style={{ marginTop: Spacing.xl }}
+          />
+        );
+      })()}
     </View>
   );
 }
@@ -692,23 +715,5 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     fontFamily: Typography.bodyBold.fontFamily,
     color: Colors.onPrimary,
-  },
-  tipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: withAlpha(Colors.accent, 0.1),
-    borderWidth: 1,
-    borderColor: withAlpha(Colors.accent, 0.25),
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    width: '100%',
-    marginTop: Spacing.xxl,
-  },
-  tipText: {
-    ...Typography.caption,
-    color: Colors.accent,
-    flex: 1,
-    lineHeight: 18,
   },
 });

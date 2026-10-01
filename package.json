@@ -1,5 +1,5 @@
 {
-  "name": "budget-buddy",
+  "name": "fincompass",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
@@ -15,6 +15,7 @@
     "expo-linear-gradient": "~56.0.4",
     "expo-linking": "~56.0.18",
     "expo-router": "~56.2.21",
+    "expo-sms-reader": "file:./modules/expo-sms-reader",
     "expo-splash-screen": "~56.0.15",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
