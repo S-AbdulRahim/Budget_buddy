@@ -281,6 +281,8 @@ export const INITIAL_EMPTY_DATA: AppData = {
   overrideDebtLock: false,
   creditCards: [],
   cardTransactions: [],
+  bankAccounts: [],
+  accountTransactions: [],
 };
 
 // Kept for backward compatibility if any older layouts reference it

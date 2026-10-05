@@ -8,91 +8,69 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   ScrollView,
-  Platform,
-  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, TabularNums, withAlpha } from '../theme';
-import { CreditCard } from '../types';
+import { Colors, Spacing, BorderRadius, Typography, TabularNums, withAlpha } from '../theme';
+import { BankAccount } from '../types';
 import { CREDIT_CARD_COLORS } from '../data/budgetData';
 
-interface AddCreditCardModalProps {
+interface AddBankAccountModalProps {
   visible: boolean;
-  initialCard?: CreditCard | null;
-  defaultCardType?: 'credit' | 'debit';
-  onSave: (cardData: Omit<CreditCard, 'id'>) => void;
+  initialAccount?: BankAccount | null;
+  onSave: (accountData: Omit<BankAccount, 'id'>) => void;
   onClose: () => void;
-  onRequestSmsConsent?: () => void;
-  hasSmsPermission?: boolean;
 }
 
 const POPULAR_BANKS = ['HDFC', 'SBI', 'ICICI', 'Axis', 'Kotak', 'Other'];
 
-export default function AddCreditCardModal({
+export default function AddBankAccountModal({
   visible,
-  initialCard,
-  defaultCardType = 'credit',
+  initialAccount,
   onSave,
   onClose,
-  onRequestSmsConsent,
-  hasSmsPermission = false,
-}: AddCreditCardModalProps) {
-  const [cardType, setCardType] = useState<'credit' | 'debit'>('credit');
+}: AddBankAccountModalProps) {
   const [nickname, setNickname] = useState('');
   const [bank, setBank] = useState('HDFC');
   const [customBank, setCustomBank] = useState('');
-  const [last4, setLast4] = useState('');
+  const [accountType, setAccountType] = useState<'savings' | 'current'>('savings');
+  const [lastDigits, setLastDigits] = useState('');
   const [color, setColor] = useState(CREDIT_CARD_COLORS[0]);
-  const [smsTrackingEnabled, setSmsTrackingEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialCard) {
-      setCardType(initialCard.cardType || 'credit');
-      setNickname(initialCard.nickname);
-      const isPreset = POPULAR_BANKS.includes(initialCard.bank || '');
+    if (initialAccount) {
+      setNickname(initialAccount.nickname);
+      const isPreset = POPULAR_BANKS.includes(initialAccount.bank || '');
       if (isPreset) {
-        setBank(initialCard.bank || 'HDFC');
+        setBank(initialAccount.bank || 'HDFC');
         setCustomBank('');
       } else {
         setBank('Other');
-        setCustomBank(initialCard.bank || '');
+        setCustomBank(initialAccount.bank || '');
       }
-      setLast4(initialCard.last4);
-      setColor(initialCard.color || CREDIT_CARD_COLORS[0]);
-      setSmsTrackingEnabled(initialCard.smsTrackingEnabled ?? true);
+      setAccountType(initialAccount.accountType || 'savings');
+      setLastDigits(initialAccount.lastDigits || '');
+      setColor(initialAccount.color || CREDIT_CARD_COLORS[0]);
     } else {
-      setCardType(defaultCardType);
       setNickname('');
       setBank('HDFC');
       setCustomBank('');
-      setLast4('');
+      setAccountType('savings');
+      setLastDigits('');
       setColor(CREDIT_CARD_COLORS[0]);
-      setSmsTrackingEnabled(Platform.OS === 'android');
     }
     setError(null);
-  }, [initialCard, visible, defaultCardType]);
+  }, [initialAccount, visible]);
 
-  const handleLast4Change = (text: string) => {
+  const handleLastDigitsChange = (text: string) => {
     const clean = text.replace(/[^0-9]/g, '').slice(0, 4);
-    setLast4(clean);
-  };
-
-  const handleToggleSms = (val: boolean) => {
-    if (val && !hasSmsPermission && onRequestSmsConsent) {
-      onRequestSmsConsent();
-    }
-    setSmsTrackingEnabled(val);
+    setLastDigits(clean);
   };
 
   const handleSubmit = () => {
     const trimmedNick = nickname.trim();
     if (!trimmedNick) {
-      setError('Please enter a card nickname');
-      return;
-    }
-    if (last4.length !== 4) {
-      setError('Last 4 digits must be exactly 4 numbers');
+      setError('Please enter an account nickname');
       return;
     }
 
@@ -101,10 +79,9 @@ export default function AddCreditCardModal({
     onSave({
       nickname: trimmedNick,
       bank: resolvedBank,
-      last4,
+      accountType,
+      lastDigits: lastDigits || undefined,
       color,
-      smsTrackingEnabled: Platform.OS === 'android' ? smsTrackingEnabled : false,
-      cardType,
     });
     onClose();
   };
@@ -122,18 +99,16 @@ export default function AddCreditCardModal({
             <View style={styles.card}>
               <View style={styles.header}>
                 <View style={styles.headerLeft}>
-                  <Ionicons name="card-outline" size={24} color={Colors.primary} />
+                  <Ionicons name="wallet-outline" size={24} color={Colors.primary} />
                   <Text style={styles.title}>
-                    {initialCard
-                      ? (cardType === 'debit' ? 'Edit Debit Card' : 'Edit Credit Card')
-                      : (cardType === 'debit' ? 'Add Debit Card' : 'Add Credit Card')}
+                    {initialAccount ? 'Edit Bank Account' : 'Add Bank Account'}
                   </Text>
                 </View>
                 <TouchableOpacity
                   onPress={onClose}
                   style={styles.closeBtn}
                   accessibilityRole="button"
-                  accessibilityLabel="Close card modal"
+                  accessibilityLabel="Close account modal"
                 >
                   <Ionicons name="close" size={20} color={Colors.textSecondary} />
                 </TouchableOpacity>
@@ -147,57 +122,59 @@ export default function AddCreditCardModal({
                   </View>
                 )}
 
-                {/* Card Preview Banner */}
-                <View style={[styles.cardPreview, { backgroundColor: color }]}>
+                {/* Account Preview Card */}
+                <View style={[styles.accountPreview, { backgroundColor: color }]}>
                   <View style={styles.previewTop}>
                     <Text style={styles.previewBank}>
-                      {(bank === 'Other' ? customBank || 'CARD' : bank) + (cardType === 'debit' ? ' • DEBIT' : ' • CREDIT')}
+                      {(bank === 'Other' ? customBank || 'BANK' : bank) + ` • ${accountType.toUpperCase()}`}
                     </Text>
-                    <Ionicons name="card" size={20} color={Colors.onPrimary} />
+                    <Ionicons name="business-outline" size={20} color={Colors.onPrimary} />
                   </View>
-                  <Text style={styles.previewNumber}>•••• •••• •••• {last4 || '••••'}</Text>
-                  <Text style={styles.previewName}>{nickname || 'CARD HOLDER'}</Text>
+                  <Text style={styles.previewNumber}>
+                    A/C {lastDigits ? `•••• •••• ${lastDigits}` : '•••• •••• ••••'}
+                  </Text>
+                  <Text style={styles.previewName}>{nickname || 'PRIMARY ACCOUNT'}</Text>
                 </View>
 
-                {/* Card Type Selector */}
-                <Text style={styles.inputLabel}>Card Type</Text>
-                <View style={styles.cardTypeRow}>
+                {/* Account Type Selector */}
+                <Text style={styles.inputLabel}>Account Type</Text>
+                <View style={styles.typeRow}>
                   <TouchableOpacity
-                    style={[styles.cardTypeChip, cardType === 'credit' && styles.cardTypeChipActive]}
-                    onPress={() => setCardType('credit')}
+                    style={[styles.typeChip, accountType === 'savings' && styles.typeChipActive]}
+                    onPress={() => setAccountType('savings')}
                     activeOpacity={0.7}
                   >
                     <Ionicons
-                      name="card-outline"
+                      name="wallet-outline"
                       size={16}
-                      color={cardType === 'credit' ? Colors.primaryLight : Colors.textMuted}
+                      color={accountType === 'savings' ? Colors.primaryLight : Colors.textMuted}
                     />
-                    <Text style={[styles.cardTypeChipText, cardType === 'credit' && styles.cardTypeChipTextActive]}>
-                      Credit Card
+                    <Text style={[styles.typeChipText, accountType === 'savings' && styles.typeChipTextActive]}>
+                      Savings Account
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.cardTypeChip, cardType === 'debit' && styles.cardTypeChipActive]}
-                    onPress={() => setCardType('debit')}
+                    style={[styles.typeChip, accountType === 'current' && styles.typeChipActive]}
+                    onPress={() => setAccountType('current')}
                     activeOpacity={0.7}
                   >
                     <Ionicons
-                      name="card"
+                      name="briefcase-outline"
                       size={16}
-                      color={cardType === 'debit' ? Colors.primaryLight : Colors.textMuted}
+                      color={accountType === 'current' ? Colors.primaryLight : Colors.textMuted}
                     />
-                    <Text style={[styles.cardTypeChipText, cardType === 'debit' && styles.cardTypeChipTextActive]}>
-                      Debit Card
+                    <Text style={[styles.typeChipText, accountType === 'current' && styles.typeChipTextActive]}>
+                      Current Account
                     </Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* Nickname Input */}
-                <Text style={styles.inputLabel}>Card Nickname</Text>
+                <Text style={styles.inputLabel}>Account Nickname</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="e.g. HDFC Millennia, SBI Cashback"
+                  placeholder="e.g. Salary Account, Emergency Fund"
                   placeholderTextColor={Colors.textMuted}
                   value={nickname}
                   onChangeText={text => {
@@ -207,7 +184,7 @@ export default function AddCreditCardModal({
                 />
 
                 {/* Bank Selector */}
-                <Text style={styles.inputLabel}>Issuing Bank</Text>
+                <Text style={styles.inputLabel}>Bank Name</Text>
                 <View style={styles.chipRow}>
                   {POPULAR_BANKS.map(b => (
                     <TouchableOpacity
@@ -241,23 +218,23 @@ export default function AddCreditCardModal({
                   />
                 )}
 
-                {/* Last 4 Digits Input */}
-                <Text style={styles.inputLabel}>Last 4 Digits</Text>
+                {/* Last 4 Digits Input (Optional) */}
+                <Text style={styles.inputLabel}>Last 3-4 Digits (Optional)</Text>
                 <TextInput
                   style={[styles.textInput, TabularNums]}
-                  placeholder="1234"
+                  placeholder="e.g. 5678"
                   placeholderTextColor={Colors.textMuted}
                   keyboardType="numeric"
                   maxLength={4}
-                  value={last4}
-                  onChangeText={handleLast4Change}
+                  value={lastDigits}
+                  onChangeText={handleLastDigitsChange}
                 />
                 <Text style={styles.helperText}>
-                  For your security, FinCompass never stores or asks for full card numbers or CVVs.
+                  Only for identifying this account. Never enter full account numbers.
                 </Text>
 
-                {/* Card Color Picker */}
-                <Text style={styles.inputLabel}>Card Color</Text>
+                {/* Account Color Picker */}
+                <Text style={styles.inputLabel}>Account Color</Text>
                 <View style={styles.colorRow}>
                   {CREDIT_CARD_COLORS.map(c => (
                     <TouchableOpacity
@@ -268,43 +245,22 @@ export default function AddCreditCardModal({
                         color === c && styles.colorCircleActive,
                       ]}
                       onPress={() => setColor(c)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Select color ${c}`}
                       activeOpacity={0.8}
                     >
                       {color === c && (
-                        <Ionicons name="checkmark" size={16} color={Colors.white} />
+                        <Ionicons name="checkmark" size={16} color={Colors.onPrimary} />
                       )}
                     </TouchableOpacity>
                   ))}
                 </View>
-
-                {/* SMS Tracking Toggle (native / Android only) */}
-                {Platform.OS === 'android' && (
-                  <View style={styles.toggleRow}>
-                    <View style={styles.toggleTextWrap}>
-                      <Text style={styles.toggleTitle}>Auto-detect SMS Spends</Text>
-                      <Text style={styles.toggleSubtitle}>
-                        Parse transaction alerts from {bank === 'Other' ? 'bank' : bank} SMS
-                      </Text>
-                    </View>
-                    <Switch
-                      value={smsTrackingEnabled}
-                      onValueChange={handleToggleSms}
-                      trackColor={{ false: Colors.surfaceHighlight, true: Colors.primary }}
-                      thumbColor={Colors.white}
-                    />
-                  </View>
-                )}
               </ScrollView>
 
+              {/* Actions */}
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={styles.cancelBtn}
                   onPress={onClose}
                   activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel card editing"
                 >
                   <Text style={styles.cancelText}>Cancel</Text>
                 </TouchableOpacity>
@@ -312,11 +268,11 @@ export default function AddCreditCardModal({
                 <TouchableOpacity
                   style={styles.saveBtn}
                   onPress={handleSubmit}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel="Save credit card"
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.saveText}>Save Card</Text>
+                  <Text style={styles.saveText}>
+                    {initialAccount ? 'Save Changes' : 'Add Account'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -330,21 +286,17 @@ export default function AddCreditCardModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: Colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.xl,
+    backgroundColor: withAlpha(Colors.background, 0.8),
+    justifyContent: 'flex-end',
   },
   card: {
-    width: '100%',
-    maxWidth: 460,
-    maxHeight: '90%',
     backgroundColor: Colors.surfaceElevated,
-    borderRadius: BorderRadius.xl,
+    borderTopLeftRadius: BorderRadius.xxl,
+    borderTopRightRadius: BorderRadius.xxl,
     padding: Spacing.xl,
+    maxHeight: '90%',
     borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadows.elevated,
   },
   header: {
     flexDirection: 'row',
@@ -365,37 +317,33 @@ const styles = StyleSheet.create({
     padding: Spacing.xs,
   },
   scrollArea: {
-    marginVertical: Spacing.xs,
+    marginBottom: Spacing.md,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: withAlpha(Colors.danger, 0.12),
-    borderWidth: 1,
-    borderColor: withAlpha(Colors.danger, 0.3),
-    borderRadius: BorderRadius.md,
+    backgroundColor: withAlpha(Colors.danger, 0.15),
     padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
   },
   errorText: {
-    ...Typography.caption,
+    ...Typography.small,
     color: Colors.danger,
     flex: 1,
   },
-  cardPreview: {
+  accountPreview: {
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    ...Shadows.card,
+    justifyContent: 'space-between',
+    height: 140,
   },
   previewTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
   },
   previewBank: {
     ...Typography.caption,
@@ -404,16 +352,46 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   previewNumber: {
-    ...Typography.subtitle,
+    ...Typography.bodyBold,
     ...TabularNums,
     color: Colors.onPrimary,
-    marginBottom: Spacing.md,
     letterSpacing: 2,
+    marginVertical: Spacing.sm,
   },
   previewName: {
     ...Typography.small,
     color: Colors.onPrimary,
     textTransform: 'uppercase',
+  },
+  typeRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  typeChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surfaceHighlight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  typeChipActive: {
+    backgroundColor: withAlpha(Colors.primary, 0.18),
+    borderColor: Colors.primary,
+  },
+  typeChipText: {
+    ...Typography.caption,
+    fontFamily: Typography.bodyBold.fontFamily,
+    color: Colors.textMuted,
+  },
+  typeChipTextActive: {
+    color: Colors.primaryLight,
   },
   inputLabel: {
     ...Typography.caption,
@@ -423,19 +401,19 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   textInput: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceHighlight,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    ...Typography.body,
+    color: Colors.textPrimary,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    color: Colors.textPrimary,
-    ...Typography.body,
   },
   helperText: {
     ...Typography.small,
     color: Colors.textMuted,
     marginTop: Spacing.xs,
+    lineHeight: 16,
   },
   chipRow: {
     flexDirection: 'row',
@@ -443,19 +421,19 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   chip: {
+    paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs + 2,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceHighlight,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   chipActive: {
-    backgroundColor: withAlpha(Colors.primary, 0.15),
+    backgroundColor: withAlpha(Colors.primary, 0.2),
     borderColor: Colors.primary,
   },
   chipText: {
-    ...Typography.caption,
+    ...Typography.small,
     color: Colors.textSecondary,
   },
   chipTextActive: {
@@ -464,14 +442,14 @@ const styles = StyleSheet.create({
   },
   colorRow: {
     flexDirection: 'row',
-    gap: Spacing.sm,
     flexWrap: 'wrap',
-    marginVertical: Spacing.xs,
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   colorCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.full,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -480,28 +458,6 @@ const styles = StyleSheet.create({
   colorCircleActive: {
     borderColor: Colors.textPrimary,
     transform: [{ scale: 1.1 }],
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  toggleTextWrap: {
-    flex: 1,
-    marginRight: Spacing.md,
-  },
-  toggleTitle: {
-    ...Typography.bodyBold,
-    color: Colors.textPrimary,
-  },
-  toggleSubtitle: {
-    ...Typography.small,
-    color: Colors.textSecondary,
-    marginTop: 2,
   },
   actions: {
     flexDirection: 'row',
@@ -533,35 +489,5 @@ const styles = StyleSheet.create({
   saveText: {
     ...Typography.bodyBold,
     color: Colors.onPrimary,
-  },
-  cardTypeRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  cardTypeChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.surfaceHighlight,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  cardTypeChipActive: {
-    backgroundColor: withAlpha(Colors.primary, 0.18),
-    borderColor: Colors.primary,
-  },
-  cardTypeChipText: {
-    ...Typography.caption,
-    fontFamily: Typography.bodyBold.fontFamily,
-    color: Colors.textMuted,
-  },
-  cardTypeChipTextActive: {
-    color: Colors.primaryLight,
   },
 });

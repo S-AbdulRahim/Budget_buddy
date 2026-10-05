@@ -1,6 +1,6 @@
 // AsyncStorage wrapper for data persistence
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppData, Expense, Category, Investment, BudgetingRule, CreditCard, CardTransaction } from '../types';
+import { AppData, Expense, Category, Investment, BudgetingRule, CreditCard, CardTransaction, BankAccount, AccountTransaction } from '../types';
 import {
   INITIAL_EMPTY_DATA,
   DEFAULT_CATEGORY_GROUPS,
@@ -40,10 +40,26 @@ export async function loadData(): Promise<AppData> {
       if (!data.creditCards) {
         hasMigration = true;
         data.creditCards = [];
+      } else {
+        data.creditCards = data.creditCards.map(c => {
+          if (!c.cardType) {
+            hasMigration = true;
+            return { ...c, cardType: 'credit' as const };
+          }
+          return c;
+        });
       }
       if (!data.cardTransactions) {
         hasMigration = true;
         data.cardTransactions = [];
+      }
+      if (!data.bankAccounts) {
+        hasMigration = true;
+        data.bankAccounts = [];
+      }
+      if (!data.accountTransactions) {
+        hasMigration = true;
+        data.accountTransactions = [];
       }
       if (hasMigration) {
         await saveData(data);
@@ -262,14 +278,16 @@ export async function confirmCardTransaction(
   const tx = data.cardTransactions![txIndex];
   const cat = data.categories.find(c => c.name === expenseDetails.category);
   const defaultType = cat?.group === 'Needs' ? 'Need' : 'Want';
+  const card = (data.creditCards || []).find(c => c.id === tx.cardId);
+  const paymentMode = card?.cardType === 'debit' ? 'Debit Card' : 'Credit Card';
 
   const newExpense: Expense = {
     id: Date.now().toString(),
     amount: tx.amount,
     category: expenseDetails.category,
-    description: expenseDetails.description || tx.merchant || 'Credit Card Spend',
+    description: expenseDetails.description || tx.merchant || (card?.cardType === 'debit' ? 'Debit Card Spend' : 'Credit Card Spend'),
     date: tx.date,
-    paymentMode: 'Credit Card',
+    paymentMode,
     type: expenseDetails.type || defaultType,
   };
 
@@ -320,6 +338,8 @@ export async function addManualCardTransaction(
 ): Promise<AppData> {
   const data = await loadData();
   const newTxId = `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const card = (data.creditCards || []).find(c => c.id === cardId);
+  const paymentMode = card?.cardType === 'debit' ? 'Debit Card' : 'Credit Card';
 
   const newTx: CardTransaction = {
     id: newTxId,
@@ -337,9 +357,9 @@ export async function addManualCardTransaction(
     id: Date.now().toString(),
     amount,
     category,
-    description: merchant || 'Credit Card Spend',
+    description: merchant || (card?.cardType === 'debit' ? 'Debit Card Spend' : 'Credit Card Spend'),
     date,
-    paymentMode: 'Credit Card',
+    paymentMode,
     type,
   };
   data.expenses = [newExpense, ...data.expenses];
@@ -349,6 +369,80 @@ export async function addManualCardTransaction(
     cat.spent = data.expenses
       .filter(e => e.category === cat.name)
       .reduce((sum, e) => sum + e.amount, 0);
+  }
+
+  await saveData(data);
+  return data;
+}
+
+export async function addBankAccount(account: Omit<BankAccount, 'id'>): Promise<AppData> {
+  const data = await loadData();
+  const newAccount: BankAccount = {
+    ...account,
+    id: Date.now().toString(),
+  };
+  data.bankAccounts = [...(data.bankAccounts || []), newAccount];
+  await saveData(data);
+  return data;
+}
+
+export async function updateBankAccount(accountId: string, updates: Partial<BankAccount>): Promise<AppData> {
+  const data = await loadData();
+  data.bankAccounts = (data.bankAccounts || []).map(a => (a.id === accountId ? { ...a, ...updates } : a));
+  await saveData(data);
+  return data;
+}
+
+export async function deleteBankAccount(accountId: string): Promise<AppData> {
+  const data = await loadData();
+  data.bankAccounts = (data.bankAccounts || []).filter(a => a.id !== accountId);
+  data.accountTransactions = (data.accountTransactions || []).filter(t => t.accountId !== accountId);
+  await saveData(data);
+  return data;
+}
+
+export async function addManualAccountTransaction(
+  accountId: string,
+  amount: number,
+  description: string,
+  date: string,
+  type: 'debit' | 'credit',
+  category?: string,
+  expenseType: 'Need' | 'Want' = 'Need'
+): Promise<AppData> {
+  const data = await loadData();
+  const newTxId = `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  const newTx: AccountTransaction = {
+    id: newTxId,
+    accountId,
+    amount,
+    description,
+    date,
+    type,
+    category,
+  };
+
+  data.accountTransactions = [newTx, ...(data.accountTransactions || [])];
+
+  if (type === 'debit' && category) {
+    const newExpense: Expense = {
+      id: Date.now().toString(),
+      amount,
+      category,
+      description: description || 'Bank Account Debit',
+      date,
+      paymentMode: 'Bank Transfer',
+      type: expenseType,
+    };
+    data.expenses = [newExpense, ...data.expenses];
+
+    const cat = data.categories.find(c => c.name === category);
+    if (cat) {
+      cat.spent = data.expenses
+        .filter(e => e.category === cat.name)
+        .reduce((sum, e) => sum + e.amount, 0);
+    }
   }
 
   await saveData(data);

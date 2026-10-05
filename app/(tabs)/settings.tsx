@@ -1144,27 +1144,27 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Credit Cards Section Link */}
+        {/* Accounts & Cards Section Link */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <Ionicons name="card-outline" size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Credit Cards</Text>
+            <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
+            <Text style={styles.sectionTitle}>Accounts & Cards</Text>
           </View>
           <TouchableOpacity
             style={styles.cardNavRow}
-            onPress={() => router.push('/(tabs)/cards')}
+            onPress={() => router.push('/(tabs)/accounts')}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Manage your credit cards"
+            accessibilityLabel="Manage your accounts and cards"
           >
             <View style={styles.cardNavLeft}>
               <View style={styles.cardNavIcon}>
-                <Ionicons name="card" size={20} color={Colors.primaryLight} />
+                <Ionicons name="wallet" size={20} color={Colors.primaryLight} />
               </View>
               <View style={styles.cardNavInfo}>
-                <Text style={styles.cardNavTitle}>Manage Credit Cards</Text>
+                <Text style={styles.cardNavTitle}>Manage Accounts & Cards</Text>
                 <Text style={styles.cardNavSubtitle}>
-                  View cards, automated SMS spend tracking & pending reviews
+                  Credit cards, debit cards, bank accounts & transaction monitoring
                 </Text>
               </View>
             </View>

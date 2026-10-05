@@ -6,7 +6,7 @@ export interface Expense {
   description: string;
   category: string;
   amount: number;
-  paymentMode: 'UPI' | 'Bank Transfer' | 'Cash' | 'Credit Card';
+  paymentMode: 'UPI' | 'Bank Transfer' | 'Cash' | 'Credit Card' | 'Debit Card';
   type: 'Need' | 'Want';
 }
 
@@ -64,6 +64,26 @@ export interface CreditCard {
   bank?: string;
   color: string;
   smsTrackingEnabled: boolean;
+  cardType: 'credit' | 'debit';
+}
+
+export interface BankAccount {
+  id: string;
+  nickname: string;
+  bank?: string;
+  accountType: 'savings' | 'current';
+  lastDigits?: string; // last 3-4 digits of account number, optional
+  color: string;
+}
+
+export interface AccountTransaction {
+  id: string;
+  accountId: string;
+  amount: number;
+  description: string;
+  date: string;
+  type: 'debit' | 'credit';
+  category?: string;
 }
 
 export interface CardTransaction {
@@ -96,5 +116,7 @@ export interface AppData {
   overrideDebtLock?: boolean;
   creditCards?: CreditCard[];
   cardTransactions?: CardTransaction[];
+  bankAccounts?: BankAccount[];
+  accountTransactions?: AccountTransaction[];
 }
 

@@ -123,7 +123,7 @@ export default function DashboardScreen() {
       {pendingTransactions.length > 0 && (
         <TouchableOpacity
           style={styles.pendingBanner}
-          onPress={() => router.push('/(tabs)/cards?review=true')}
+          onPress={() => router.push('/(tabs)/accounts?review=true')}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel={`Review ${pendingTransactions.length} pending card transactions`}

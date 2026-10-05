@@ -12,6 +12,11 @@ import { Colors, Spacing, BorderRadius, Typography, Shadows, formatCurrencyFull,
 import { loadData } from '../../src/data/storage';
 import { AppData } from '../../src/types';
 
+const TABLE_HEADER_HEIGHT = 44;
+const TABLE_ROW_HEIGHT = 42;
+const CATEGORY_COL_WIDTH = 110;
+const MONTH_COL_WIDTH = 65;
+
 export default function AnnualScreen() {
   const [data, setData] = useState<AppData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -117,68 +122,95 @@ export default function AnnualScreen() {
 
       {/* Monthly Breakdown Table */}
       <Text style={styles.sectionTitle}>Monthly Breakdown</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.table}>
-          {/* Table Header */}
-          <View style={styles.tableRow}>
-            <View style={[styles.tableCell, styles.tableCellHeader, styles.tableCellFirst]}>
+      <View style={styles.table}>
+        <View style={styles.tableContainer}>
+          {/* Fixed Left Column: Category */}
+          <View style={styles.fixedColumn}>
+            {/* Header Cell */}
+            <View style={[styles.tableCellFirst, styles.tableCellHeader, { height: TABLE_HEADER_HEIGHT }]}>
               <Text style={styles.tableHeaderText}>Category</Text>
             </View>
-            {data.annualProjections.map(m => (
-              <View key={m.month} style={[styles.tableCell, styles.tableCellHeader]}>
-                <Text style={styles.tableHeaderText}>{m.month}</Text>
-              </View>
-            ))}
-            <View style={[styles.tableCell, styles.tableCellHeader, styles.tableCellTotal]}>
-              <Text style={[styles.tableHeaderText, { color: Colors.primary }]}>Total</Text>
-            </View>
-          </View>
 
-          {/* Category Rows */}
-          {categoryNames.map((cat, index) => (
-            <View
-              key={cat}
-              style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlt]}
-            >
-              <View style={[styles.tableCell, styles.tableCellFirst]}>
+            {/* Category Rows */}
+            {categoryNames.map((cat, index) => (
+              <View
+                key={cat}
+                style={[
+                  styles.tableCellFirst,
+                  { height: TABLE_ROW_HEIGHT },
+                  index % 2 === 1 && styles.tableRowAlt,
+                ]}
+              >
                 <View style={[styles.miniDot, { backgroundColor: getCategoryColor(cat) }]} />
                 <Text style={styles.tableCellText} numberOfLines={1}>{cat}</Text>
               </View>
-              {data.annualProjections.map(m => (
-                <View key={m.month} style={styles.tableCell}>
-                  <Text style={styles.tableCellValue}>
-                    ₹{((m.categories[cat] || 0) / 1000).toFixed(0)}K
-                  </Text>
-                </View>
-              ))}
-              <View style={[styles.tableCell, styles.tableCellTotal]}>
-                <Text style={[styles.tableCellValue, styles.tableCellTotalHighlight]}>
-                  ₹{(annualByCat[cat] / 1000).toFixed(0)}K
-                </Text>
-              </View>
-            </View>
-          ))}
+            ))}
 
-          {/* Total Row */}
-          <View style={[styles.tableRow, styles.tableRowTotal]}>
-            <View style={[styles.tableCell, styles.tableCellFirst]}>
+            {/* Total Row */}
+            <View style={[styles.tableCellFirst, styles.tableRowTotal, { height: TABLE_ROW_HEIGHT }]}>
               <Text style={styles.tableTotalText}>TOTAL</Text>
             </View>
-            {data.annualProjections.map(m => (
-              <View key={m.month} style={styles.tableCell}>
-                <Text style={styles.tableTotalValue}>
-                  ₹{(m.total / 1000).toFixed(0)}K
-                </Text>
-              </View>
-            ))}
-            <View style={[styles.tableCell, styles.tableCellTotal]}>
-              <Text style={[styles.tableTotalValue, { color: Colors.primary }]}>
-                ₹{(annualTotal / 1000).toFixed(0)}K
-              </Text>
-            </View>
           </View>
+
+          {/* Scrollable Right Columns: Months + Total */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollableArea}>
+            <View>
+              {/* Header Row */}
+              <View style={[styles.tableRow, { height: TABLE_HEADER_HEIGHT }]}>
+                {data.annualProjections.map(m => (
+                  <View key={m.month} style={[styles.tableCell, styles.tableCellHeader]}>
+                    <Text style={styles.tableHeaderText}>{m.month}</Text>
+                  </View>
+                ))}
+                <View style={[styles.tableCell, styles.tableCellHeader, styles.tableCellTotal]}>
+                  <Text style={[styles.tableHeaderText, { color: Colors.primary }]}>Total</Text>
+                </View>
+              </View>
+
+              {/* Data Rows */}
+              {categoryNames.map((cat, index) => (
+                <View
+                  key={cat}
+                  style={[
+                    styles.tableRow,
+                    { height: TABLE_ROW_HEIGHT },
+                    index % 2 === 1 && styles.tableRowAlt,
+                  ]}
+                >
+                  {data.annualProjections.map(m => (
+                    <View key={m.month} style={styles.tableCell}>
+                      <Text style={styles.tableCellValue}>
+                        ₹{((m.categories[cat] || 0) / 1000).toFixed(0)}K
+                      </Text>
+                    </View>
+                  ))}
+                  <View style={[styles.tableCell, styles.tableCellTotal]}>
+                    <Text style={[styles.tableCellValue, styles.tableCellTotalHighlight]}>
+                      ₹{(annualByCat[cat] / 1000).toFixed(0)}K
+                    </Text>
+                  </View>
+                </View>
+              ))}
+
+              {/* Total Row */}
+              <View style={[styles.tableRow, styles.tableRowTotal, { height: TABLE_ROW_HEIGHT }]}>
+                {data.annualProjections.map(m => (
+                  <View key={m.month} style={styles.tableCell}>
+                    <Text style={styles.tableTotalValue}>
+                      ₹{(m.total / 1000).toFixed(0)}K
+                    </Text>
+                  </View>
+                ))}
+                <View style={[styles.tableCell, styles.tableCellTotal]}>
+                  <Text style={[styles.tableTotalValue, { color: Colors.primary }]}>
+                    ₹{(annualTotal / 1000).toFixed(0)}K
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
         </View>
-      </ScrollView>
+      </View>
 
       <View style={{ height: Spacing.xxxl }} />
     </ScrollView>
@@ -320,6 +352,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     overflow: 'hidden',
   },
+  tableContainer: {
+    flexDirection: 'row',
+  },
+  fixedColumn: {
+    width: CATEGORY_COL_WIDTH,
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+    backgroundColor: Colors.surfaceElevated,
+    zIndex: 1,
+  },
+  scrollableArea: {
+    flex: 1,
+  },
   tableRow: {
     flexDirection: 'row',
   },
@@ -332,24 +377,31 @@ const styles = StyleSheet.create({
     borderTopColor: withAlpha(Colors.primary, 0.3),
   },
   tableCell: {
-    width: 65,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    width: MONTH_COL_WIDTH,
+    paddingHorizontal: Spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
     borderRightColor: Colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: withAlpha(Colors.border, 0.4),
     flexDirection: 'row',
   },
   tableCellHeader: {
     backgroundColor: Colors.surface,
-    paddingVertical: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   tableCellFirst: {
-    width: 110,
+    width: CATEGORY_COL_WIDTH,
     justifyContent: 'flex-start',
+    alignItems: 'center',
     paddingLeft: Spacing.md,
+    paddingRight: Spacing.xs,
     gap: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: withAlpha(Colors.border, 0.4),
+    flexDirection: 'row',
   },
   tableCellTotal: {
     backgroundColor: withAlpha(Colors.primary, 0.08),

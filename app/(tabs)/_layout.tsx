@@ -34,11 +34,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="cards"
+        name="accounts"
         options={{
-          title: 'Cards',
+          title: 'Accounts',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card" size={22} color={color} />
+            <Ionicons name="wallet" size={22} color={color} />
           ),
         }}
       />

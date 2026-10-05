@@ -61,6 +61,7 @@ can't be recolored to match theme state, and don't scale cleanly with
 | Plan tab                  | `trending-down`            |
 | Dashboard tab             | `grid`                     |
 | Expenses tab              | `receipt`                  |
+| Accounts tab              | `wallet`                   |
 | Annual tab                | `calendar`                 |
 
 If a new section needs an icon not listed here, add it to this table in the
@@ -240,7 +241,7 @@ to the theme file rather than inlining a one-off value.
 - **Bottom tab navigation** in `app/(tabs)/_layout.tsx` contains strictly 6 tabs in this exact order:
   1. `Dashboard` (`index.tsx`, icon: `grid`)
   2. `Expenses` (`expenses.tsx`, icon: `receipt`)
-  3. `Cards` (`cards.tsx`, icon: `card`) — Dedicated credit card manager, automated SMS spend sync, and pending review.
+  3. `Accounts` (`accounts.tsx`, icon: `wallet`) — Dedicated hub for Credit Cards, Debit Cards, and Bank Accounts.
   4. `Plan` (`plan.tsx`, icon: `trending-down`) — Unified financial roadmap merging Debt payoff and Investment goals.
   5. `Annual` (`annual.tsx`, icon: `calendar`)
   6. `Settings` (`settings.tsx`, icon: `settings`) — App preferences, budgeting framework, database reset.
@@ -249,11 +250,16 @@ to the theme file rather than inlining a one-off value.
   - Section contents are decoupled into `src/components/plan/DebtSection.tsx` and `src/components/plan/InvestSection.tsx`.
   - Default segment is `Debt` unless `debtTotal === 0`, in which case it defaults to `Invest`.
   - In `InvestSection`, the debt lock banner provides an immediate CTA ("View Debt Payoff Plan") switching segments via `onSwitchToDebt`.
-- **Credit Cards Architecture:**
-  - Credit cards are managed directly in `app/(tabs)/cards.tsx`.
-  - `app/(tabs)/settings.tsx` provides a clean navigation row (`/(tabs)/cards`) rather than inline card management.
-  - Dashboard pending spends banner routes directly to `/(tabs)/cards?review=true` to initiate review without UI friction.
-- **No Orphaned Routes:** Expo Router registers every file in `app/(tabs)/` as a route. Deprecated screen files (e.g. `debt.tsx` or `invest.tsx`) must never be left in `app/(tabs)/`.
+- **Accounts Architecture:**
+  - Accounts and cards are managed directly in `app/(tabs)/accounts.tsx`.
+  - Hosts a 3-way top segmented control: "Credit Cards", "Debit Cards", and "Account".
+  - Credit and Debit cards use the same card manager UI, filtered by `cardType: 'credit' | 'debit'`.
+  - Bank Accounts are managed under the "Account" segment for savings/current accounts.
+  - Action buttons are arranged in a 2-row layout on mobile viewports for clean, un-cramped touch targets.
+  - Each segment includes an inline "Recent Transactions" section with a direct navigation link to the Expenses tab.
+  - `app/(tabs)/settings.tsx` provides a clean navigation row (`/(tabs)/accounts`) rather than inline card management.
+  - Dashboard pending spends banner routes directly to `/(tabs)/accounts?review=true` to initiate review without UI friction.
+- **No Orphaned Routes:** Expo Router registers every file in `app/(tabs)/` as a route. Deprecated screen files (e.g. `debt.tsx`, `invest.tsx`, `cards.tsx`) must never be left in `app/(tabs)/`.
 
 ### Budget architecture & framework rules
 - All budget split frameworks are defined in `BUDGETING_RULES` in
@@ -309,6 +315,7 @@ to the theme file rather than inlining a one-off value.
 - **Ephemeral raw snippet:** `rawSmsSnippet` is only retained while a transaction is in `'pending'` state for user verification in the UI. The moment a transaction is confirmed or dismissed, `rawSmsSnippet` is strictly stripped and deleted before persisting to storage.
 - **100% on-device processing:** All SMS reading and parsing occurs strictly on the user's device. No SMS body, merchant name, or financial figure is ever transmitted off the device.
 - **Store compliance requirement:** Prior to Google Play release, the Google Play Console Permissions Declaration Form for SMS / Call Log exceptions (Money Management category) must be submitted, and the public privacy policy URL must clearly disclose the local read-only SMS permission.
+- **Account-level SMS parsing is deferred / deliberately out of scope:** Indian bank debit/credit account SMS alerts ("Rs.X debited from A/c XX1234") use significantly different phrasing and structural syntax compared to credit/debit card spend alerts ("spent on your Card xx1234"). The existing sender allowlist and regex parser (`smsParser.ts`) were designed and validated strictly for card-spend formats. Bank accounts currently support manual balance and transaction entry only. Do not attempt to parse bank account SMS without extending the regex table and adding dedicated account-alert parsing patterns.
 
 ### Brand system (`BrandMark`)
 - Use `<BrandMark />` (`src/components/BrandMark.tsx`) for the official app
