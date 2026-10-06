@@ -4,6 +4,11 @@ import { parseTransactionSms } from './smsParser';
 import { loadData, addCardTransactions } from './storage';
 import { CreditCard, CardTransaction } from '../types';
 
+export interface RequestSmsPermissionsResult {
+  granted: boolean;
+  canAskAgain: boolean;
+}
+
 export async function checkSmsPermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
   try {
@@ -15,14 +20,28 @@ export async function checkSmsPermissions(): Promise<boolean> {
   }
 }
 
-export async function requestSmsPermissions(): Promise<boolean> {
-  if (Platform.OS !== 'android') return false;
+export async function checkSmsPermissionsDetailed(): Promise<SmsReader.SmsPermissionsResult> {
+  if (Platform.OS !== 'android') {
+    return { readSms: false, receiveSms: false, canAskAgain: true };
+  }
+  try {
+    return await SmsReader.checkPermissionsAsync();
+  } catch (e) {
+    console.warn('Error checking detailed SMS permissions:', e);
+    return { readSms: false, receiveSms: false, canAskAgain: true };
+  }
+}
+
+export async function requestSmsPermissions(): Promise<RequestSmsPermissionsResult> {
+  if (Platform.OS !== 'android') return { granted: false, canAskAgain: true };
   try {
     const res = await SmsReader.requestPermissionsAsync();
-    return !!(res.readSms && res.receiveSms);
+    const granted = !!(res.readSms && res.receiveSms);
+    const canAskAgain = res.canAskAgain !== false;
+    return { granted, canAskAgain };
   } catch (e) {
     console.warn('Error requesting SMS permissions:', e);
-    return false;
+    return { granted: false, canAskAgain: true };
   }
 }
 

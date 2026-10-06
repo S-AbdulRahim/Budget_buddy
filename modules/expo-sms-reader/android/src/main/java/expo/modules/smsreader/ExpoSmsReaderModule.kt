@@ -10,15 +10,23 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Telephony
 import android.telephony.SmsMessage
+import android.util.Log
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.facebook.react.modules.core.PermissionAwareActivity
+import com.facebook.react.modules.core.PermissionListener
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
-import expo.modules.interfaces.permissions.PermissionsStatus
 import java.util.regex.Pattern
+
+private const val PERMISSIONS_REQUEST_CODE = 8042
+private const val PREFERENCES_NAME = "expo.modules.smsreader"
+private const val KEY_HAS_REQUESTED_SMS = "has_requested_sms_permissions"
 
 class ExpoSmsReaderModule : Module() {
   private var smsReceiver: BroadcastReceiver? = null
+  private var pendingPromise: Promise? = null
 
   override fun definition() = ModuleDefinition {
     Name("ExpoSmsReader")
@@ -28,7 +36,8 @@ class ExpoSmsReaderModule : Module() {
     AsyncFunction("checkPermissionsAsync") {
       val context = appContext.reactContext ?: return@AsyncFunction mapOf(
         "readSms" to false,
-        "receiveSms" to false
+        "receiveSms" to false,
+        "canAskAgain" to true
       )
       val readSms = ContextCompat.checkSelfPermission(
         context,
@@ -40,45 +49,140 @@ class ExpoSmsReaderModule : Module() {
         Manifest.permission.RECEIVE_SMS
       ) == PackageManager.PERMISSION_GRANTED
 
+      val activity = appContext.currentActivity
+      val prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+      val hasRequestedBefore = prefs.getBoolean(KEY_HAS_REQUESTED_SMS, false)
+
+      val canAskAgain = if (!readSms || !receiveSms) {
+        if (hasRequestedBefore && activity != null) {
+          ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_SMS) ||
+          ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.RECEIVE_SMS)
+        } else {
+          true
+        }
+      } else {
+        true
+      }
+
       mapOf(
         "readSms" to readSms,
-        "receiveSms" to receiveSms
+        "receiveSms" to receiveSms,
+        "canAskAgain" to canAskAgain
       )
     }
 
     AsyncFunction("requestPermissionsAsync") { promise: Promise ->
-      val permissionsManager = appContext.permissionsManager
-      if (permissionsManager == null) {
-        val context = appContext.reactContext
-        val readSms = context != null && ContextCompat.checkSelfPermission(
-          context,
-          Manifest.permission.READ_SMS
-        ) == PackageManager.PERMISSION_GRANTED
-        val receiveSms = context != null && ContextCompat.checkSelfPermission(
-          context,
-          Manifest.permission.RECEIVE_SMS
-        ) == PackageManager.PERMISSION_GRANTED
+      // Part 1 diagnostic log
+      Log.d("ExpoSmsReader", "permissionsManager is null: true")
 
+      val context = appContext.reactContext
+      val activity = appContext.currentActivity
+
+      if (context == null || activity == null) {
+        Log.w("ExpoSmsReader", "Cannot request permissions: currentActivity or reactContext is null")
         promise.resolve(mapOf(
-          "readSms" to readSms,
-          "receiveSms" to receiveSms
+          "readSms" to false,
+          "receiveSms" to false,
+          "canAskAgain" to true
         ))
         return@AsyncFunction
       }
 
-      permissionsManager.requestPermissions(
-        { response ->
-          val readSms = response[Manifest.permission.READ_SMS]?.status == PermissionsStatus.GRANTED
-          val receiveSms = response[Manifest.permission.RECEIVE_SMS]?.status == PermissionsStatus.GRANTED
+      val alreadyReadSms = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.READ_SMS
+      ) == PackageManager.PERMISSION_GRANTED
 
-          promise.resolve(mapOf(
-            "readSms" to readSms,
-            "receiveSms" to receiveSms
-          ))
-        },
+      val alreadyReceiveSms = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.RECEIVE_SMS
+      ) == PackageManager.PERMISSION_GRANTED
+
+      if (alreadyReadSms && alreadyReceiveSms) {
+        promise.resolve(mapOf(
+          "readSms" to true,
+          "receiveSms" to true,
+          "canAskAgain" to true
+        ))
+        return@AsyncFunction
+      }
+
+      val permissionsArray = arrayOf(
         Manifest.permission.READ_SMS,
         Manifest.permission.RECEIVE_SMS
       )
+
+      val prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+      val hasRequestedBefore = prefs.getBoolean(KEY_HAS_REQUESTED_SMS, false)
+
+      val shouldShowRationaleBefore = ActivityCompat.shouldShowRequestPermissionRationale(
+        activity,
+        Manifest.permission.READ_SMS
+      ) || ActivityCompat.shouldShowRequestPermissionRationale(
+        activity,
+        Manifest.permission.RECEIVE_SMS
+      )
+
+      if (hasRequestedBefore && !shouldShowRationaleBefore) {
+        Log.d("ExpoSmsReader", "SMS permissions are permanently denied (canAskAgain: false)")
+        promise.resolve(mapOf(
+          "readSms" to false,
+          "receiveSms" to false,
+          "canAskAgain" to false
+        ))
+        return@AsyncFunction
+      }
+
+      if (activity is PermissionAwareActivity) {
+        pendingPromise = promise
+        activity.requestPermissions(
+          permissionsArray,
+          PERMISSIONS_REQUEST_CODE,
+          PermissionListener { requestCode, permissions, grantResults ->
+            if (requestCode == PERMISSIONS_REQUEST_CODE) {
+              val readIdx = permissions.indexOf(Manifest.permission.READ_SMS)
+              val receiveIdx = permissions.indexOf(Manifest.permission.RECEIVE_SMS)
+
+              val readGranted = readIdx != -1 && grantResults.getOrNull(readIdx) == PackageManager.PERMISSION_GRANTED
+              val receiveGranted = receiveIdx != -1 && grantResults.getOrNull(receiveIdx) == PackageManager.PERMISSION_GRANTED
+
+              val shouldShowRationaleAfter = ActivityCompat.shouldShowRequestPermissionRationale(
+                activity,
+                Manifest.permission.READ_SMS
+              ) || ActivityCompat.shouldShowRequestPermissionRationale(
+                activity,
+                Manifest.permission.RECEIVE_SMS
+              )
+
+              val canAskAgain = if (!readGranted || !receiveGranted) {
+                shouldShowRationaleAfter
+              } else {
+                true
+              }
+
+              prefs.edit().putBoolean(KEY_HAS_REQUESTED_SMS, true).apply()
+
+              pendingPromise?.resolve(mapOf(
+                "readSms" to readGranted,
+                "receiveSms" to receiveGranted,
+                "canAskAgain" to canAskAgain
+              ))
+              pendingPromise = null
+              return@PermissionListener true
+            }
+            return@PermissionListener false
+          }
+        )
+      } else {
+        Log.w("ExpoSmsReader", "Activity is not PermissionAwareActivity; falling back to ActivityCompat")
+        ActivityCompat.requestPermissions(activity, permissionsArray, PERMISSIONS_REQUEST_CODE)
+        prefs.edit().putBoolean(KEY_HAS_REQUESTED_SMS, true).apply()
+        promise.resolve(mapOf(
+          "readSms" to false,
+          "receiveSms" to false,
+          "canAskAgain" to true
+        ))
+      }
     }
 
     AsyncFunction("readInbox") { options: Map<String, Any?>? ->
@@ -227,6 +331,7 @@ class ExpoSmsReaderModule : Module() {
     }
 
     OnDestroy {
+      pendingPromise = null
       val context = appContext.reactContext ?: return@OnDestroy
       smsReceiver?.let {
         try {

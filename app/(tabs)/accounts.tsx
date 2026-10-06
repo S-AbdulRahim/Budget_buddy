@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Platform,
+  Linking,
   useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -60,6 +61,7 @@ export default function AccountsScreen() {
   const [cardToEdit, setCardToEdit] = useState<CreditCard | null>(null);
   const [cardToDelete, setCardToDelete] = useState<CreditCard | null>(null);
   const [showSmsConsentModal, setShowSmsConsentModal] = useState(false);
+  const [showPermanentlyDeniedModal, setShowPermanentlyDeniedModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [showAddManualExpenseModal, setShowAddManualExpenseModal] = useState(false);
   const [alertModal, setAlertModal] = useState<{ title: string; message: string; onOk?: () => void } | null>(null);
@@ -85,6 +87,9 @@ export default function AccountsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchData();
+      if (Platform.OS === 'android') {
+        checkSmsPermissions().then(setHasSmsPermission).catch(() => {});
+      }
     }, [fetchData])
   );
 
@@ -197,9 +202,9 @@ export default function AccountsScreen() {
   // SMS Consent & manual sync
   const handleConsentContinue = async () => {
     setShowSmsConsentModal(false);
-    const granted = await requestSmsPermissions();
-    setHasSmsPermission(granted);
-    if (granted) {
+    const result = await requestSmsPermissions();
+    setHasSmsPermission(result.granted);
+    if (result.granted) {
       setSyncingSms(true);
       const count = await syncHistoricalSms();
       setSyncingSms(false);
@@ -208,6 +213,8 @@ export default function AccountsScreen() {
       if (count > 0) {
         setShowPendingModal(true);
       }
+    } else if (!result.canAskAgain) {
+      setShowPermanentlyDeniedModal(true);
     }
   };
 
@@ -875,6 +882,21 @@ export default function AccountsScreen() {
         visible={showSmsConsentModal}
         onContinue={handleConsentContinue}
         onCancel={() => setShowSmsConsentModal(false)}
+      />
+
+      <ConfirmModal
+        visible={showPermanentlyDeniedModal}
+        title="SMS Permission Required"
+        message="SMS permissions were previously denied and cannot be requested automatically. To enable automatic expense tracking, please open app settings and enable SMS permissions."
+        confirmText="Open Settings"
+        cancelText="Cancel"
+        confirmStyle="primary"
+        icon="settings-outline"
+        onCancel={() => setShowPermanentlyDeniedModal(false)}
+        onConfirm={() => {
+          setShowPermanentlyDeniedModal(false);
+          Linking.openSettings();
+        }}
       />
 
       <AddCreditCardModal

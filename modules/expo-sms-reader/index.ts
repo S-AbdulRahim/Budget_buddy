@@ -19,6 +19,7 @@ export interface ReadInboxOptions {
 export interface SmsPermissionsResult {
   readSms: boolean;
   receiveSms: boolean;
+  canAskAgain: boolean;
 }
 
 // Safely obtain native module reference on Android
@@ -37,33 +38,43 @@ let watcherCount = 0;
 
 /**
  * Checks current status of READ_SMS and RECEIVE_SMS permissions on Android.
- * Always resolves cleanly to `{ readSms: false, receiveSms: false }` on non-Android platforms.
+ * Always resolves cleanly to `{ readSms: false, receiveSms: false, canAskAgain: true }` on non-Android platforms.
  */
 export async function checkPermissionsAsync(): Promise<SmsPermissionsResult> {
   if (Platform.OS !== 'android' || !NativeModule) {
-    return { readSms: false, receiveSms: false };
+    return { readSms: false, receiveSms: false, canAskAgain: true };
   }
   try {
-    return await NativeModule.checkPermissionsAsync();
+    const res = await NativeModule.checkPermissionsAsync();
+    return {
+      readSms: !!res?.readSms,
+      receiveSms: !!res?.receiveSms,
+      canAskAgain: res?.canAskAgain !== false,
+    };
   } catch (error) {
     console.warn('[expo-sms-reader] checkPermissionsAsync failed:', error);
-    return { readSms: false, receiveSms: false };
+    return { readSms: false, receiveSms: false, canAskAgain: true };
   }
 }
 
 /**
  * Prompts user for READ_SMS and RECEIVE_SMS permissions on Android.
- * Always resolves cleanly to `{ readSms: false, receiveSms: false }` on non-Android platforms.
+ * Always resolves cleanly to `{ readSms: false, receiveSms: false, canAskAgain: true }` on non-Android platforms.
  */
 export async function requestPermissionsAsync(): Promise<SmsPermissionsResult> {
   if (Platform.OS !== 'android' || !NativeModule) {
-    return { readSms: false, receiveSms: false };
+    return { readSms: false, receiveSms: false, canAskAgain: true };
   }
   try {
-    return await NativeModule.requestPermissionsAsync();
+    const res = await NativeModule.requestPermissionsAsync();
+    return {
+      readSms: !!res?.readSms,
+      receiveSms: !!res?.receiveSms,
+      canAskAgain: res?.canAskAgain !== false,
+    };
   } catch (error) {
     console.warn('[expo-sms-reader] requestPermissionsAsync failed:', error);
-    return { readSms: false, receiveSms: false };
+    return { readSms: false, receiveSms: false, canAskAgain: true };
   }
 }
 
